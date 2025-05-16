@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+  <%- include('partials/header') %>
+
+  <div class="container main-content">
+    <div class="form-container-tabs mx-auto">
+      <ul class="nav nav-tabs nav-justified mb-4" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="entrar-sala-tab" data-bs-toggle="tab" data-bs-target="#entrar-sala-pane" type="button" role="tab" aria-controls="entrar-sala-pane" aria-selected="true">Entrar em uma Sala</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="criar-sala-tab" data-bs-toggle="tab" data-bs-target="#criar-sala-pane" type="button" role="tab" aria-controls="criar-sala-pane" aria-selected="false">Criar Sala</button>
+        </li>
+      </ul>
+      <div class="tab-content" id="myTabContent">
+        <!-- Entrar em uma Sala Tab -->
+        <div class="tab-pane fade show active" id="entrar-sala-pane" role="tabpanel" aria-labelledby="entrar-sala-tab" tabindex="0">
+          <form action="/entrar-sala" method="POST">
+            <div class="mb-3">
+              <label for="codigoSala" class="form-label">Código da Sala</label>
+              <input type="text" name="codigoSala" id="codigoSala" class="form-control" placeholder="Digite o código da sala" required>
+            </div>
+            <button type="submit" class="btn btn-custom w-100">Entrar na Sala</button>
+          </form>
+        </div>
+        <!-- Criar Sala Tab -->
+        <div class="tab-pane fade" id="criar-sala-pane" role="tabpanel" aria-labelledby="criar-sala-tab" tabindex="0">
+          <form action="/criar-sala" method="POST">
+            <div class="mb-3">
+              <label for="nomeSala" class="form-label">Nome da Sala</label>
+              <input type="text" name="nomeSala" id="nomeSala" class="form-control" placeholder="Digite um nome para a sala" required>
+            </div>
+            <div class="mb-3">
+              <label for="temaSessao" class="form-label">Tema da Sessão</label>
+              <input type="text" name="temaSessao" id="temaSessao" class="form-control" placeholder="Ex: Ideias para novo projeto">
+            </div>
+            <div class="mb-4 form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch" id="salaProtegida" name="salaProtegida">
+              <label class="form-check-label" for="salaProtegida">Sala Protegida</label>
+              <small class="form-text text-muted d-block">Selecione para exigir senha para que outros participantes possam entrar.</small>
+            </div>
+            <button type="submit" class="btn btn-custom w-100">Criar Sala</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/footer') %>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

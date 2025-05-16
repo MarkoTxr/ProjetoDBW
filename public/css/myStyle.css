@@ -1,0 +1,182 @@
+/* Estilos Globais */
+body {
+  background-color: #121212; /* Cor de fundo escura principal */
+  color: #e0e0e0; /* Cor de texto clara para contraste */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-top: 70px; /* Ajuste para o header fixo */
+}
+
+/* Header */
+.navbar {
+  background-color: #1f1f1f; /* Cor de fundo do header, ligeiramente mais clara que o body */
+  border-bottom: 1px solid #333;
+}
+
+.navbar .navbar-brand {
+  color: #e0e0e0;
+  font-weight: bold;
+}
+
+.navbar .nav-link {
+  color: #b0b0b0; /* Cor dos links de navegação */
+}
+
+.navbar .nav-link:hover, .navbar .nav-link.active {
+  color: #ffffff;
+}
+
+.navbar-toggler {
+    border-color: rgba(255,255,255,0.1);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Conteúdo Principal */
+.main-content {
+  flex: 1;
+  display: flex;
+  align-items: center; /* Centraliza verticalmente o conteúdo */
+  justify-content: center; /* Centraliza horizontalmente o conteúdo */
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.form-container-tabs {
+  background-color: #1e1e1e; /* Cor de fundo do container do formulário */
+  padding: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 500px; /* Largura máxima do container */
+}
+
+/* Abas */
+.nav-tabs {
+  border-bottom: 1px solid #333;
+}
+
+.nav-tabs .nav-link {
+  color: #b0b0b0;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link.active {
+  color: #ffffff;
+  background-color: #1e1e1e; /* Mesmo fundo do container para dar a sensação de continuidade */
+  border-color: #333 #333 transparent #333;
+  border-top-left-radius: 0.25rem;
+  border-top-right-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+  border-color: #333 #333 transparent #333;
+  color: #ffffff;
+}
+
+.tab-content {
+  padding-top: 1.5rem;
+}
+
+/* Formulários */
+.form-label {
+  color: #b0b0b0;
+  margin-bottom: 0.5rem;
+}
+
+.form-control {
+  background-color: #2c2c2c; /* Fundo dos inputs */
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 0.25rem;
+}
+
+.form-control:focus {
+  background-color: #2c2c2c;
+  color: #e0e0e0;
+  border-color: #00bfa5; /* Cor de destaque ao focar */
+  box-shadow: 0 0 0 0.2rem rgba(0, 191, 165, 0.25);
+}
+
+.form-control::placeholder {
+  color: #6c757d;
+}
+
+.form-check-input {
+  background-color: #2c2c2c;
+  border: 1px solid #444;
+}
+
+.form-check-input:checked {
+  background-color: #00bfa5;
+  border-color: #00bfa5;
+}
+
+.form-check-label {
+  color: #b0b0b0;
+}
+
+.form-switch .form-check-input {
+    width: 2.5em;
+    margin-left: -3.5em;
+}
+
+.form-switch .form-check-label {
+    padding-left: 1em;
+}
+
+.form-text.text-muted {
+    color: #6c757d !important; /* Bootstrap override */
+    font-size: 0.875em;
+}
+
+/* Botões */
+.btn-custom {
+  background-color: #00bfa5; /* Cor verde personalizada */
+  border-color: #00bfa5;
+  color: #ffffff;
+  font-weight: 500;
+  padding: 0.75rem 1.25rem;
+}
+
+.btn-custom:hover {
+  background-color: #00a791;
+  border-color: #00a791;
+  color: #ffffff;
+}
+
+/* Footer */
+.footer {
+  background-color: #1f1f1f;
+  color: #6c757d;
+  padding: 1rem 0;
+  border-top: 1px solid #333;
+  margin-top: auto; /* Empurra o footer para baixo */
+}
+
+.footer .text-muted {
+  color: #6c757d !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .form-container-tabs {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+  .navbar-collapse {
+    background-color: #1f1f1f; /* Fundo para o menu hamburguer */
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin-top: 0.5rem;
+  }
+}
+
