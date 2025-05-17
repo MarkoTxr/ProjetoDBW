@@ -29,7 +29,7 @@ router.post('/sessoes/criar',
   criarSessao
 );
 router.post("/sessoes/entrar", entrarSessao);
-router.get("/sessoes/:id/participar", participarSessao);
+
 
 router.get("/sessoes/:id", detalhesSessao);
 router.get("/sessoes/:id/participar", participarSessao);

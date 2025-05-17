@@ -62,4 +62,4 @@ UserSchema.plugin(passportLocalMongoose, {
     }
 });
 
-export default mongoose.model("Utilizador", UserSchema);
+export default mongoose.model("User", UserSchema);

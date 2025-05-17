@@ -8,15 +8,22 @@ import User from "../models/user.js";
 // Listar todas as sessões disponíveis
 const listarSessoes = async (req, res) => {
   try {
+    // Adicionado log para depuração
+    console.log("Buscando sessões disponíveis...");
+    
     const sessoes = await Sessao.find({ status: { $ne: "concluida" } })
       .populate("host", "nome nick imagemPerfil")
       .populate("participantes", "nome nick imagemPerfil");
+    
+    // Log para verificar se sessões foram encontradas
+    console.log(`Encontradas ${sessoes.length} sessões disponíveis`);
     
     res.render("sessoes/listar", { 
       sessoes,
       titulo: "Sessões Disponíveis"
     });
   } catch (err) {
+    console.error("Erro ao listar sessões:", err);
     req.flash("error", "Erro ao carregar sessões: " + err.message);
     res.redirect("/");
   }
@@ -123,7 +130,9 @@ const criarSessao = async (req, res) => {
       niveis: err.errors?.configuracaoNiveis?.message
     });
     
-    res.redirect(`/sessoes/${novaSessao._id.toString()}`);
+    // Corrigido: redirecionar para a página de criação em caso de erro
+    // em vez de tentar acessar o ID de uma sessão que não foi criada
+    res.redirect('/sessoes/criar');
   }
 };
 
