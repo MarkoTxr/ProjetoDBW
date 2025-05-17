@@ -152,7 +152,9 @@ body {
   border-color: #00a791;
   color: #ffffff;
 }
-
+.text-muted {
+  color: #9e9e9e !important; 
+}
 /* Footer */
 .footer {
   background-color: #1f1f1f;
@@ -163,8 +165,79 @@ body {
 }
 
 .footer .text-muted {
-  color: #6c757d !important;
+  color: #ffffff !important;
 }
+
+
+
+.pfp-image{
+    object-fit: cover;
+    border: 2px solid #888;
+    background: white;
+    border-radius: 50%;
+    width: 100px;
+    height: 100px;
+  }
+
+
+/* Base Button Style */
+.nav-button {
+  color: #b0b0b0 !important;
+  padding: 0.6rem 1.2rem !important;
+  border-radius: 25px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  font-weight: 500;
+  background-color: transparent;
+  border: none;
+}
+
+/* Hover Effects */
+.nav-button::before {
+  content: none; /* remove o efeito anterior */
+}
+
+.nav-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff !important;
+}
+
+/* Specific Button Styles */
+.login-btn {
+  background-color: transparent;
+  color: #1abc9c !important; /* verde suave */
+}
+
+.login-btn:hover {
+  background-color: rgba(26, 188, 156, 0.2);
+  color: #16a085 !important;
+}
+
+.logout-btn {
+  background-color: transparent;
+  color: #e74c3c !important; /* vermelho suave */
+}
+
+.logout-btn:hover {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: #c0392b !important;
+}
+
+/* Active State */
+.nav-button.active {
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+/* Toggler Icon */
+.custom-toggler {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+
+
+
 
 /* Responsividade */
 @media (max-width: 768px) {
@@ -177,6 +250,16 @@ body {
     padding: 1rem;
     border-radius: 0.25rem;
     margin-top: 0.5rem;
+  }
+  .nav-items-container {
+    padding: 1rem 0;
+    gap: 0.8rem;
+  }
+
+  .nav-button {
+    width: 100%;
+    text-align: center;
+    margin: 0.3rem 0;
   }
 }
 
