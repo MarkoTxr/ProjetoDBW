@@ -1,14 +1,9 @@
 import express from "express";
 import userLoggedIn from "../middlewares/userLoggedIn.js";
 import {
-    loginGet,
-    registerGet,
-    loginPostRedirect,
-    registerPost,
     profileGet,
     profileEditGet,
-    profilePost,
-    logout
+    profilePost
 } from "../controllers/userController.js";
 import multer from "multer";
 import path from "path";
@@ -41,20 +36,9 @@ const upload = multer({
 
 const router = express.Router();
 
-router.get("/login", loginGet);
-router.post(
-    "/login",
-    loginPostRedirect
-);
-
-router.get("/register", registerGet);
-
+// Rotas de perfil de utilizador
 router.get("/profile", userLoggedIn, profileGet);
-router.get(
-    "/editar-perfil",
-    userLoggedIn,
-    profileEditGet
-);
+router.get("/editar-perfil", userLoggedIn, profileEditGet);
 
 // Rota para atualizar o perfil
 router.post(
@@ -62,12 +46,6 @@ router.post(
     userLoggedIn,
     upload.single("imagemPerfil"),
     profilePost
-);
-
-router.get("/logout", userLoggedIn, logout);
-router.post(
-    "/register",
-    registerPost 
 );
 
 export default router;

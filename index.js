@@ -13,9 +13,10 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 
 import "./middlewares/passport.js";
-
+import sessionRoutes from "./routes/sessaoRoutes.js";
 import homeRoutes from "./routes/homeRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import connectDB from "./config/database.js";
 
 // Conexão à base de dados MongoDB
@@ -58,6 +59,16 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Adicionar no arquivo principal (index.js)
+app.use((err, req, res, next) => {
+  console.error('Erro não tratado:', err);
+  res.status(500).render('error', {
+    titulo: 'Erro Interno',
+    mensagem: 'Ocorreu um erro inesperado'
+  });
+});
+
+
 // Torna dados úteis disponíveis globalmente nas views EJS
 app.use((req, res, next) => {
   res.locals.user = req.user;              // Utilizador autenticado (se existir)
@@ -69,7 +80,8 @@ app.use((req, res, next) => {
 // Rotas principais da aplicação
 app.use("/", homeRoutes);
 app.use("/", userRoutes);
-
+app.use("/", authRoutes);
+app.use("/", sessionRoutes);
 // Início do servidor
 const PORTA = 3000;
 app.listen(PORTA, () => {

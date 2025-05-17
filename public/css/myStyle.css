@@ -39,9 +39,6 @@ body {
 /* Conteúdo Principal */
 .main-content {
   flex: 1;
-  display: flex;
-  align-items: center; /* Centraliza verticalmente o conteúdo */
-  justify-content: center; /* Centraliza horizontalmente o conteúdo */
   padding-top: 2rem;
   padding-bottom: 2rem;
 }
@@ -53,6 +50,32 @@ body {
   box-shadow: 0 0 15px rgba(0,0,0,0.5);
   width: 100%;
   max-width: 500px; /* Largura máxima do container */
+  margin: 0 auto;
+}
+
+/* Cards */
+.card {
+  background-color: #1e1e1e !important; /* Cor de fundo dos cards */
+  border: 1px solid #333;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  background-color: #252525 !important;
+  border-bottom: 1px solid #333;
+  padding: 1rem;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.card-footer {
+  background-color: #252525 !important;
+  border-top: 1px solid #333;
+  padding: 1rem;
 }
 
 /* Abas */
@@ -90,6 +113,7 @@ body {
 .form-label {
   color: #b0b0b0;
   margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .form-control {
@@ -97,6 +121,7 @@ body {
   color: #e0e0e0;
   border: 1px solid #444;
   border-radius: 0.25rem;
+  padding: 0.75rem;
 }
 
 .form-control:focus {
@@ -133,9 +158,16 @@ body {
     padding-left: 1em;
 }
 
-.form-text.text-muted {
+.form-text {
     color: #6c757d !important; /* Bootstrap override */
     font-size: 0.875em;
+}
+
+/* Input Groups */
+.input-group-text {
+  background-color: #252525;
+  color: #b0b0b0;
+  border: 1px solid #444;
 }
 
 /* Botões */
@@ -152,35 +184,148 @@ body {
   border-color: #00a791;
   color: #ffffff;
 }
-.text-muted {
-  color: #9e9e9e !important; 
-}
-/* Footer */
-.footer {
-  background-color: #1f1f1f;
-  color: #6c757d;
-  padding: 1rem 0;
-  border-top: 1px solid #333;
-  margin-top: auto; /* Empurra o footer para baixo */
+
+.btn-secondary {
+  background-color: #424242;
+  border-color: #424242;
+  color: #e0e0e0;
 }
 
-.footer .text-muted {
-  color: #ffffff !important;
+.btn-secondary:hover {
+  background-color: #373737;
+  border-color: #373737;
+  color: #ffffff;
 }
 
+.btn-outline-secondary {
+  color: #b0b0b0;
+  border-color: #444;
+}
 
+.btn-outline-secondary:hover {
+  background-color: #333;
+  color: #e0e0e0;
+}
 
-.pfp-image{
-    object-fit: cover;
-    border: 2px solid #888;
-    background: white;
-    border-radius: 50%;
-    width: 100px;
-    height: 100px;
-  }
+.btn-outline-light {
+  color: #e0e0e0;
+  border-color: #444;
+}
 
+.btn-outline-light:hover {
+  background-color: #333;
+  color: #ffffff;
+}
 
-/* Base Button Style */
+.btn-outline-danger {
+  color: #f44336;
+  border-color: #f44336;
+}
+
+.btn-outline-danger:hover {
+  background-color: #f44336;
+  color: #ffffff;
+}
+
+.btn-success {
+  background-color: #4caf50;
+  border-color: #4caf50;
+}
+
+.btn-warning {
+  background-color: #ff9800;
+  border-color: #ff9800;
+  color: #212121;
+}
+
+.btn-danger {
+  background-color: #f44336;
+  border-color: #f44336;
+}
+
+/* Badges */
+.badge {
+  padding: 0.5em 0.75em;
+  font-weight: 500;
+  border-radius: 0.25rem;
+}
+
+.bg-success {
+  background-color: #4caf50 !important;
+}
+
+.bg-warning {
+  background-color: #ff9800 !important;
+  color: #212121 !important;
+}
+
+.bg-danger {
+  background-color: #f44336 !important;
+}
+
+.bg-secondary {
+  background-color: #616161 !important;
+}
+
+/* Alertas */
+.alert {
+  border: none;
+  border-radius: 0.25rem;
+  padding: 1rem;
+}
+
+.alert-info {
+  background-color: rgba(3, 169, 244, 0.1);
+  color: #03a9f4;
+  border-left: 4px solid #03a9f4;
+}
+
+.alert-warning {
+  background-color: rgba(255, 152, 0, 0.1);
+  color: #ff9800;
+  border-left: 4px solid #ff9800;
+}
+
+.alert-danger {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+  border-left: 4px solid #f44336;
+}
+
+/* Progress Bar */
+.progress {
+  background-color: #333;
+  height: 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.progress-bar {
+  background-color: #00bfa5;
+}
+
+/* Listas */
+.list-group-item {
+  background-color: #1e1e1e !important;
+  border-color: #333 !important;
+  color: #e0e0e0;
+}
+
+/* Imagens de perfil */
+.pfp-image {
+  object-fit: cover;
+  border: 2px solid #444;
+  background: #333;
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+}
+
+.rounded-circle {
+  object-fit: cover;
+  border: 1px solid #444;
+}
+
+/* Navegação */
 .nav-button {
   color: #b0b0b0 !important;
   padding: 0.6rem 1.2rem !important;
@@ -193,17 +338,11 @@ body {
   border: none;
 }
 
-/* Hover Effects */
-.nav-button::before {
-  content: none; /* remove o efeito anterior */
-}
-
 .nav-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #ffffff !important;
 }
 
-/* Specific Button Styles */
 .login-btn {
   background-color: transparent;
   color: #1abc9c !important; /* verde suave */
@@ -224,33 +363,46 @@ body {
   color: #c0392b !important;
 }
 
-/* Active State */
 .nav-button.active {
   transform: scale(0.95);
   box-shadow: none;
 }
 
-/* Toggler Icon */
 .custom-toggler {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Footer */
+.footer {
+  background-color: #1f1f1f;
+  color: #6c757d;
+  padding: 1rem 0;
+  border-top: 1px solid #333;
+  margin-top: auto; /* Empurra o footer para baixo */
+}
 
-
-
+.footer .text-muted {
+  color: #e0e0e0 !important;
+}
 
 /* Responsividade */
 @media (max-width: 768px) {
-  .form-container-tabs {
-    margin-left: 1rem;
-    margin-right: 1rem;
+  .main-content {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
   }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+  
   .navbar-collapse {
     background-color: #1f1f1f; /* Fundo para o menu hamburguer */
     padding: 1rem;
     border-radius: 0.25rem;
     margin-top: 0.5rem;
   }
+  
   .nav-items-container {
     padding: 1rem 0;
     gap: 0.8rem;
@@ -261,5 +413,50 @@ body {
     text-align: center;
     margin: 0.3rem 0;
   }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+  }
+  
+  .card-footer .d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .card-footer .d-flex .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .card-footer .d-flex div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .card-footer .d-flex div form {
+    width: 100%;
+  }
+  
+  .card-footer .d-flex div form button {
+    width: 100%;
+  }
 }
 
+@media (max-width: 576px) {
+  .col-md-3, .col-md-4, .col-md-6 {
+    margin-bottom: 1rem;
+  }
+  
+  .form-container-tabs {
+    padding: 1rem;
+  }
+  
+  .card-header, .card-body, .card-footer {
+    padding: 1rem;
+  }
+}
+p{
+  color: #b0b0b0;
+  font-size: 16px;
+ }

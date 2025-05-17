@@ -1,10 +1,12 @@
 // routes/homeRoutes.js
 import express from "express";
 const router = express.Router();
+import {
+    getIndex
+} from "../controllers/homeController.js";
 
 
-router.get("/", (req, res) => {
-  res.render("home"); // Renderiza login.ejs
-});
+
+router.get("/", getIndex);
 
 export default router;

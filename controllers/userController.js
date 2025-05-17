@@ -1,64 +1,11 @@
-import passport from "passport";
 import User from "../models/user.js";
 import fs from "fs";
 import path from "path";
 
-const loginGet = async (req, res) => {
-  res.render("login");
-};
-
-const registerGet = async (req, res) => {
-  res.render("register");
-};
-
 const profileGet = async (req, res) => {
-    console.log(req);
   const user = req.user;
   console.log(user);
   res.render("profile", { user }); // Passa o user para a view
-};
-
-const registerPost = async (req, res) => {
-  const { email, nick, nome, password, confirmPassword } = req.body;
-
-  // Validação de senha
-  if (password !== confirmPassword) {
-    req.flash("error", "As senhas não coincidem!");
-    return res.redirect("/register");
-  }
-
-  try {
-    const user = new User({ email, nick, nome });
-    await User.register(user, password); // passport-local-mongoose
-    res.redirect("/");
-  } catch (err) {
-    req.flash("error", err.message);
-    res.redirect("/register");
-  }
-};
-
-const loginPostRedirect = (req, res, next) => {
-  passport.authenticate("local", {
-    successRedirect: "/profile",
-    failureRedirect: "/login",
-    failureFlash: true,
-  })(req, res, next);
-};
-
-
-const logout = (req, res, next) => {
-  req.logout(function (err) {
-    if (err) return next(err);
-
-    // Destrói a sessão no MongoDB
-    req.session.destroy((err) => {
-      if (err) return next(err);
-
-        // Limpa o cookie da sessão
-      res.clearCookie('connect.sid'); 
-      res.redirect("/login");
-    });
-  });
 };
 
 const profileEditGet = async (req, res) => {
@@ -122,12 +69,7 @@ const profilePost = async (req, res) => {
 };
 
 export { 
-  registerGet, 
-  loginGet, 
   profileGet, 
-  loginPostRedirect, 
-  logout, 
-  registerPost, 
   profileEditGet, 
   profilePost 
 };

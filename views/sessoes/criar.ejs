@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <%- include('../partials/head') %>
+</head>
+<body>
+  <%- include('../partials/header') %>
+
+<div class="container main-content">
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="text-center">Criar Nova Sessão</h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Informações da Sessão</h5>
+        </div>
+        <div class="card-body">
+          <form action="/sessoes/criar" method="POST" id="formCriarSessao">
+            <!-- Tema da Sessão -->
+            <div class="mb-3">
+              <label for="tema" class="form-label">Tema da Sessão</label>
+              <input type="text" class="form-control" id="tema" name="tema" 
+                     placeholder="Ex: Inovação em Tecnologia" maxlength="120" required>
+              <div class="form-text">Máximo de 120 caracteres</div>
+            </div>
+
+            <!-- Código da Sala -->
+            <div class="mb-3">
+              <label for="codigoSala" class="form-label">Código da Sessão</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="codigoSala" name="codigoSala" 
+                       placeholder="Ex: BRAINSTORM-123" pattern="[A-Z0-9-]{6,20}" required>
+                <button class="btn btn-outline-secondary" type="button" id="gerarCodigo">Gerar</button>
+              </div>
+              <div class="form-text">Use letras maiúsculas, números e hífens (6-20 caracteres)</div>
+            </div>
+
+            <!-- Proteção da Sala -->
+            <div class="mb-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="salaProtegida" name="salaProtegida">
+                <label class="form-check-label" for="salaProtegida">Proteger sessão com senha</label>
+              </div>
+            </div>
+
+            <!-- Senha da Sala (condicional) -->
+            <div class="mb-3" id="senhaSalaGroup" style="display: none;">
+              <label for="senhaSala" class="form-label">Senha da Sessão</label>
+              <input type="password" class="form-control" id="senhaSala" name="senhaSala" 
+                     placeholder="Mínimo de 6 caracteres" minlength="6">
+              <div class="form-text">A senha será exigida para entrar na sessão</div>
+            </div>
+
+            <!-- Configuração de Níveis -->
+            <div class="mb-4">
+              <label class="form-label">Configuração de Níveis</label>
+              <div class="card mb-2">
+                <div class="card-body" style="background-color: #252525;">
+                  <p class="mb-0">Configure a duração de cada nível da sessão. Cada nível representa uma etapa do brainstorming.</p>
+                </div>
+              </div>
+              
+              <div id="niveisContainer">
+                <div class="nivel-item mb-2">
+                  <div class="input-group">
+                    <span class="input-group-text">Nível 1</span>
+                    <input type="number" class="form-control" name="niveis[]" 
+                           placeholder="Duração em segundos" min="5" max="300" value="60" required>
+                    <span class="input-group-text">segundos</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-flex justify-content-between mt-2">
+                <button type="button" class="btn btn-sm btn-outline-light" id="adicionarNivel">+ Adicionar Nível</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="removerNivel" disabled>- Remover Último</button>
+              </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="d-flex justify-content-between">
+              <a href="/sessoes" class="btn btn-secondary">Cancelar</a>
+              <button type="submit" class="btn btn-custom">Criar Sessão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Controle de exibição do campo de senha
+    const salaProtegidaCheck = document.getElementById('salaProtegida');
+    const senhaSalaGroup = document.getElementById('senhaSalaGroup');
+    const senhaSalaInput = document.getElementById('senhaSala');
+    
+    salaProtegidaCheck.addEventListener('change', function() {
+      senhaSalaGroup.style.display = this.checked ? 'block' : 'none';
+      senhaSalaInput.required = this.checked;
+    });
+    
+    // Gerador de código de sala
+    document.getElementById('gerarCodigo').addEventListener('click', function() {
+      const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let codigo = '';
+      for (let i = 0; i < 8; i++) {
+        codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+      }
+      document.getElementById('codigoSala').value = 'BRAIN-' + codigo;
+    });
+    
+    // Gestão de níveis
+    const niveisContainer = document.getElementById('niveisContainer');
+    const adicionarNivelBtn = document.getElementById('adicionarNivel');
+    const removerNivelBtn = document.getElementById('removerNivel');
+    
+    let nivelCount = 1;
+    
+    adicionarNivelBtn.addEventListener('click', function() {
+      nivelCount++;
+      
+      const nivelDiv = document.createElement('div');
+      nivelDiv.className = 'nivel-item mb-2';
+      nivelDiv.innerHTML = `
+        <div class="input-group">
+          <span class="input-group-text">Nível ${nivelCount}</span>
+          <input type="number" class="form-control" name="niveis[]" 
+                 placeholder="Duração em segundos" min="5" max="300" value="60" required>
+          <span class="input-group-text">segundos</span>
+        </div>
+      `;
+      
+      niveisContainer.appendChild(nivelDiv);
+      removerNivelBtn.disabled = false;
+    });
+    
+    removerNivelBtn.addEventListener('click', function() {
+      if (nivelCount > 1) {
+        niveisContainer.removeChild(niveisContainer.lastChild);
+        nivelCount--;
+        
+        if (nivelCount === 1) {
+          removerNivelBtn.disabled = true;
+        }
+      }
+    });
+    
+    // Validação do formulário
+    document.getElementById('formCriarSessao').addEventListener('submit', function(e) {
+      const salaProtegida = salaProtegidaCheck.checked;
+      const senhaSala = senhaSalaInput.value;
+      
+      if (salaProtegida && (!senhaSala || senhaSala.length < 6)) {
+        e.preventDefault();
+        alert('Para sessões protegidas, a senha deve ter pelo menos 6 caracteres.');
+      }
+    });
+  });
+</script>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

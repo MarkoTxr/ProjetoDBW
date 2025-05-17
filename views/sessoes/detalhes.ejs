@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <%- include('../partials/head') %>
+</head>
+<body>
+  <%- include('../partials/header') %>
+
+<div class="container main-content">
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="text-center">Detalhes da Sessão</h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <div class="card bg-dark">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><%= sessao.tema %></h5>
+          <span class="badge <%= sessao.status === 'ativa' ? 'bg-success' : sessao.status === 'pausada' ? 'bg-warning' : sessao.status === 'concluida' ? 'bg-danger' : 'bg-secondary' %>">
+            <%= sessao.status === 'ativa' ? 'Ativa' : sessao.status === 'pausada' ? 'Pausada' : sessao.status === 'concluida' ? 'Concluída' : 'Aguardando Início' %>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <img src="<%= sessao.host.imagemPerfil || '/images/default-profile.png' %>" 
+                 alt="Host" class="rounded-circle me-2" width="40" height="40">
+            <div>
+              <strong>Host:</strong> <%= sessao.host.nick || sessao.host.nome %>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <strong>Código da Sessão:</strong> <%= sessao.codigoSala %>
+          </div>
+          
+          <div class="mb-3">
+            <strong>Proteção:</strong> <%= sessao.salaProtegida ? 'Sessão protegida por senha' : 'Sessão aberta' %>
+          </div>
+          
+          <div class="mb-3">
+            <strong>Configuração de Níveis:</strong>
+            <ul class="list-group list-group-flush bg-dark">
+              <% sessao.configuracaoNiveis.forEach((nivel, index) => { %>
+                <li class="list-group-item bg-dark">Nível <%= index + 1 %>: <%= nivel.segundos %> segundos</li>
+              <% }) %>
+            </ul>
+          </div>
+          
+          <div class="mb-3">
+            <strong>Participantes (<%= sessao.participantes.length %>):</strong>
+            <div class="row mt-2">
+              <% sessao.participantes.forEach(participante => { %>
+                <div class="col-md-4 mb-2">
+                  <div class="d-flex align-items-center">
+                    <img src="<%= participante.imagemPerfil || '/images/default-profile.png' %>" 
+                         alt="<%= participante.nick || participante.nome %>" 
+                         class="rounded-circle me-2" width="30" height="30">
+                    <span><%= participante.nick || participante.nome %></span>
+                    
+                    <% if (isHost && !participante._id.equals(sessao.host._id)) { %>
+                      <form action="/sessoes/<%= sessao._id %>/expulsar/<%= participante._id %>" method="POST" class="ms-2">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                onclick="return confirm('Tem certeza que deseja expulsar este participante?')">
+                          <i class="bi bi-x-circle"></i>
+                        </button>
+                      </form>
+                    <% } %>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <div class="d-flex justify-content-between">
+            <a href="/sessoes" class="btn btn-secondary">Voltar</a>
+            
+            <% if (isHost) { %>
+              <div>
+                <% if (sessao.status === 'aguardando_inicio' || sessao.status === 'pausada') { %>
+                  <form action="/sessoes/<%= sessao._id %>/iniciar" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-success">Iniciar Sessão</button>
+                  </form>
+                <% } %>
+                
+                <% if (sessao.status === 'ativa') { %>
+                  <form action="/sessoes/<%= sessao._id %>/pausar" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-warning">Pausar Sessão</button>
+                  </form>
+                <% } %>
+                
+                <% if (sessao.status !== 'concluida') { %>
+                  <form action="/sessoes/<%= sessao._id %>/concluir" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-danger" 
+                            onclick="return confirm('Tem certeza que deseja concluir esta sessão? Esta ação não pode ser desfeita.')">
+                      Concluir Sessão
+                    </button>
+                  </form>
+                <% } %>
+              </div>
+            <% } else if (!isParticipante && sessao.status !== 'concluida') { %>
+              <a href="/sessoes/<%= sessao._id %>/participar" class="btn btn-custom">Participar</a>
+            <% } else if (isParticipante && sessao.status !== 'concluida') { %>
+              <a href="/sessoes/<%= sessao._id %>/participar" class="btn btn-custom">Entrar na Sessão</a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>
