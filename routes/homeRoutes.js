@@ -2,11 +2,11 @@
 import express from "express";
 const router = express.Router();
 import {
-    getIndex
-} from "../controllers/homeController.js";
+    listarSessoes
+} from "../controllers/sessaoController.js";
 
 
 
-router.get("/", getIndex);
+router.get("/", listarSessoes);
 
 export default router;

@@ -68,8 +68,77 @@ const profilePost = async (req, res) => {
   }
 };
 
+// Renderiza a página de leaderboard
+const leaderboardGet = async (req, res) => {
+  try {
+    res.render("leaderboard");
+  } catch (err) {
+    req.flash("error", "Erro ao carregar leaderboard");
+    res.redirect("/");
+  }
+};
+
+const getLeaderboard = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const metrica = req.query.metrica || 'ideias'; // Métrica padrão: ideias
+
+    let sortField, projectFields;
+    
+    switch (metrica) {
+      case 'ideias':
+        sortField = 'metricas.ideiasContribuidas';
+        projectFields = {
+          nick: 1,
+          metricas: 1,
+          valorMetrica: '$metricas.ideiasContribuidas'
+        };
+        break;
+      case 'sessoes':
+        sortField = 'metricas.sessoesParticipadas';
+        projectFields = {
+          nick: 1,
+          metricas: 1,
+          valorMetrica: '$metricas.sessoesParticipadas'
+        };
+        break;
+      default:
+        return res.status(400).json({ 
+          success: false,
+          message: "Métrica inválida"
+        });
+    }
+
+    const result = await User.aggregate([
+      { $project: projectFields },
+      { $sort: { [sortField]: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit }
+    ]);
+
+    const totalUsers = await User.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      metrica: metrica
+    });
+
+  } catch (err) {
+    res.status(500).json({ 
+      success: false,
+      message: "Erro ao carregar leaderboard",
+      error: err.message
+    });
+  }
+};
 export { 
   profileGet, 
   profileEditGet, 
-  profilePost 
+  profilePost,
+  leaderboardGet,
+  getLeaderboard  
 };

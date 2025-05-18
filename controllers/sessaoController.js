@@ -304,23 +304,34 @@ const concluirSessao = async (req, res) => {
     if (!sessao) {
       return res.status(404).json({ success: false, message: "Sessão não encontrada" });
     }
-    
+
     // Verificar se o usuário é o host
     if (!sessao.host.equals(req.user._id)) {
       return res.status(403).json({ success: false, message: "Apenas o host pode concluir a sessão" });
     }
-    
-    // Verificar se a sessão pode ser concluída
-    if (sessao.status === "concluida") {
-      return res.status(400).json({ success: false, message: "A sessão já está concluída" });
-    }
-    
-    // Atualizar status da sessão
+
+    // 1. Atualizar participantes
+    await User.updateMany(
+      { _id: { $in: sessao.participantes } },
+      {
+        $addToSet: { sessoesParticipadas: sessao._id }, // Adiciona sessão à lista
+        $inc: { "metricas.sessoesParticipadas": 1 }      // Incrementa contador
+      }
+    );
+
+    // 2. Atualizar host (sessões criadas)
+    await User.findByIdAndUpdate(
+      sessao.host,
+      { $inc: { "metricas.sessoesCriadas": 1 } }
+    );
+
+    // 3. Atualizar status da sessão
     sessao.status = "concluida";
     await sessao.save();
-    
+
     // Resposta para AJAX
     return res.json({ success: true, message: "Sessão concluída com sucesso" });
+
   } catch (err) {
     return res.status(500).json({ success: false, message: "Erro ao concluir sessão: " + err.message });
   }

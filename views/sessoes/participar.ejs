@@ -17,20 +17,20 @@
     <div class="col-md-10 offset-md-1">
       <div class="card bg-dark">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0"><%= sessao.tema %></h5>
-          <span class="badge <%= sessao.status === 'ativa' ? 'bg-success' : sessao.status === 'pausada' ? 'bg-warning' : sessao.status === 'concluida' ? 'bg-danger' : 'bg-secondary' %>">
+          <h5 class="mb-0  text-bright"><%= sessao.tema %></h5>
+          <span class="badge  <%= sessao.status === 'ativa' ? 'bg-success' : sessao.status === 'pausada' ? 'bg-warning' : sessao.status === 'concluida' ? 'bg-danger' : 'bg-secondary' %>">
             <%= sessao.status === 'ativa' ? 'Ativa' : sessao.status === 'pausada' ? 'Pausada' : sessao.status === 'concluida' ? 'Concluída' : 'Aguardando Início' %>
           </span>
         </div>
         <div class="card-body">
           <!-- Área de Participação -->
           <div id="participacaoArea">
-            <div class="mb-4">
-              <h5>Instruções</h5>
+            <div class="mb-4 text-bright">
+              <h5 >Instruções</h5>
               <p>Aguarde o host iniciar a sessão. Quando a sessão estiver ativa, você poderá submeter suas ideias para cada nível.</p>
             </div>
             
-            <div class="mb-4">
+            <div class="mb-4 text-bright">
               <h5>Participantes</h5>
               <div class="row">
                 <% sessao.participantes.forEach(participante => { %>
@@ -47,7 +47,7 @@
             </div>
             
             <% if (sessao.status === 'aguardando_inicio') { %>
-              <div class="alert alert-info">
+              <div class="alert alert-info ">
                 <strong>Aguardando início da sessão...</strong>
                 <% if (isHost) { %>
                   <div class="mt-2">
@@ -65,7 +65,7 @@
                 <% } %>
               </div>
             <% } else if (sessao.status === 'ativa') { %>
-              <div id="nivelAtivo" class="mb-4">
+              <div id="nivelAtivo" class="mb-4 text-bright">
                 <h5>Nível Atual: <span id="nivelAtualNum">1</span></h5>
                 <div class="progress mb-2">
                   <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
@@ -73,10 +73,10 @@
                 <p>Tempo restante: <span id="tempoRestante">60</span> segundos</p>
               </div>
               
-              <div id="submissaoArea" class="mb-4">
+              <div id="submissaoArea" class="mb-4 text-bright">
                 <h5>Submeta suas ideias</h5>
                 <form id="formSubmeterPalavras">
-                  <div class="mb-3">
+                  <div class="mb-3 ">
                     <textarea class="form-control" id="palavrasInput" rows="3" placeholder="Digite suas ideias separadas por vírgula"></textarea>
                   </div>
                   <button type="submit" class="btn btn-custom">Submeter Ideias</button>

@@ -3,7 +3,8 @@ import userLoggedIn from "../middlewares/userLoggedIn.js";
 import {
     profileGet,
     profileEditGet,
-    profilePost
+    profilePost,
+    leaderboardGet
 } from "../controllers/userController.js";
 import multer from "multer";
 import path from "path";
@@ -48,4 +49,6 @@ router.post(
     profilePost
 );
 
+
+router.get('/leaderboard', leaderboardGet);
 export default router;

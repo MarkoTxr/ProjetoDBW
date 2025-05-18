@@ -9,7 +9,7 @@
 <div class="container main-content">
   <div class="row mb-4">
     <div class="col">
-      <h1 class="text-center">Sessões Disponíveis</h1>
+      <h1 class="text-center text-light">Sessões Disponíveis</h1>
     </div>
   </div>
 
@@ -21,9 +21,9 @@
 
   <div class="row mb-3">
     <div class="col">
-      <div class="card bg-dark">
+      <div class="card">
         <div class="card-header">
-          <h5 class="mb-0">Entrar em uma Sessão</h5>
+          <h5 class="mb-0 text-light">Entrar em uma Sessão</h5>
         </div>
         <div class="card-body">
           <form action="/sessoes/entrar" method="POST" class="row g-3">
@@ -48,14 +48,14 @@
     <div class="row">
       <% sessoes.forEach(sessao => { %>
         <div class="col-md-6 col-lg-4 mb-4">
-          <div class="card h-100 bg-dark">
+          <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-              <h5 class="mb-0"><%= sessao.tema %></h5>
+              <h5 class="mb-0 text-light"><%= sessao.tema %></h5>
               <span class="badge <%= sessao.status === 'ativa' ? 'bg-success' : sessao.status === 'pausada' ? 'bg-warning' : 'bg-secondary' %>">
                 <%= sessao.status === 'ativa' ? 'Ativa' : sessao.status === 'pausada' ? 'Pausada' : 'Aguardando' %>
               </span>
             </div>
-            <div class="card-body">
+            <div class="card-body text-light">
               <div class="d-flex align-items-center mb-3">
                 <img src="<%= sessao.host.imagemPerfil || '/images/default-profile.png' %>" 
                      alt="Host" class="rounded-circle me-2" width="40" height="40">
@@ -82,6 +82,6 @@
   <% } %>
 </div>
 
-  <%- include('../partials/footer') %>
+<%- include('../partials/footer') %>
 </body>
 </html>

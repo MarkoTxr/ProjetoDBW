@@ -18,7 +18,7 @@ import homeRoutes from "./routes/homeRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import connectDB from "./config/database.js";
-
+import apiRoute from "./routes/apiRoutes.js";
 // Conexão à base de dados MongoDB
 connectDB();
 
@@ -82,6 +82,33 @@ app.use("/", homeRoutes);
 app.use("/", userRoutes);
 app.use("/", authRoutes);
 app.use("/", sessionRoutes);
+app.use("/api", apiRoute);
+
+
+import axios from 'axios';
+
+const LM_STUDIO_URL = "http://89.109.76.139:1234/v1/chat/completions";
+
+async function testSimpleHello() {
+  try {
+    const response = await axios.post(LM_STUDIO_URL, {
+      messages: [
+        { role: "user", content: "Qual a capital de portugal?" }
+      ],
+      model: "llama-3.2-1b-claude-3.7-sonnet-reasoning-distilled",
+      stream: false // Desativa streaming para resposta simples
+    });
+
+    console.log("Resposta completa:", response.data);
+    console.log("\nResposta do modelo:", response.data.choices[0].message.content);
+
+  } catch (error) {
+    console.error("Erro:", error.response?.data || error.message);
+  }
+}
+
+testSimpleHello();
+
 // Início do servidor
 const PORTA = 3000;
 app.listen(PORTA, () => {
