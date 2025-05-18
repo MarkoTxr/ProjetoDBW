@@ -817,20 +817,79 @@ const processarPalavrasNivel = async (io, sessaoId, nivel) => {
 // Função para finalizar sessão
 const finalizarSessao = async (io, sessaoId, sessao) => {
   try {
-    // Atualizar status da sessão no banco de dados
-    sessao.status = "concluida";
-    await sessao.save();
+    // Buscar sessão com dados populados para processamento
+    const sessaoCompleta = await Sessao.findById(sessaoId)
+      .populate("ideias.autor", "nick")
+      .populate("participantes", "nick")
+      .select("+resultadosAI");
+    
+    if (!sessaoCompleta) {
+      console.error(`Sessão ${sessaoId} não encontrada para finalização`);
+      return;
+    }
+    
+    // 1. Gerar resultado da IA
+    let resultadoIA = "Nenhuma solução gerada";
+    try {
+      resultadoIA = await generateBrainmasterSolution(
+        sessaoCompleta.tema,
+        sessaoCompleta.ideias
+      );
+      
+      // Salvar resultado na sessão
+      if (!sessaoCompleta.resultadosAI) {
+        sessaoCompleta.resultadosAI = [];
+      }
 
-    // Limpar dados da sessão
+      sessaoCompleta.resultadosAI.push({
+        texto: resultadoIA,
+        timestamp: new Date(),
+      });
+    } catch (iaError) {
+      console.error("Erro na IA durante finalização automática:", iaError);
+      resultadoIA = "Falha ao gerar solução automática";
+    }
+
+    // 2. Criar lista de ideias com nicknames
+    const listaIdeias = sessaoCompleta.ideias.map((ideia) => ({
+      texto: ideia.texto,
+      nick: ideia.autor.nick || "Anônimo",
+      timestamp: ideia.timestamp,
+    }));
+
+    // 3. Atualizar status e salvar
+    sessaoCompleta.status = "concluida";
+    await sessaoCompleta.save();
+
+    // 4. Atualizar métricas dos utilizadores
+    await User.updateMany(
+      { _id: { $in: sessaoCompleta.participantes } },
+      {
+        $addToSet: { sessoesParticipadas: sessaoCompleta._id },
+        $inc: { "metricas.sessoesParticipadas": 1 },
+      }
+    );
+
+    if (sessaoCompleta.host) {
+      await User.findByIdAndUpdate(sessaoCompleta.host, {
+        $inc: { "metricas.sessoesCriadas": 1 },
+      });
+    }
+    
+    console.log(listaIdeias);
+    
+    // 5. Limpar dados da memória
     sessoesDados.delete(sessaoId);
 
-    // Notificar todos na sala que a sessão foi concluída
+    // 6. Notificar todos com dados completos
     io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
       mensagem: "A sessão foi concluída automaticamente",
       status: "concluida",
+      resultadoSessao: resultadoIA,
+      ideias: listaIdeias,
     });
 
-    console.log(`Sessão ${sessaoId} concluída automaticamente`);
+    console.log(`Sessão ${sessaoId} concluída automaticamente com resultados IA salvos`);
   } catch (err) {
     console.error("Erro ao finalizar sessão:", err);
   }
