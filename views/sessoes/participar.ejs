@@ -22,6 +22,7 @@
               <h5 class="mb-0 text-bright"><%= sessao.tema %></h5>
               <span
                 class="badge <%= sessao.status === 'ativa' ? 'bg-success' : sessao.status === 'pausada' ? 'bg-warning' : sessao.status === 'concluida' ? 'bg-danger' : 'bg-secondary' %>"
+                id="status-badge"
               >
                 <%= sessao.status === 'ativa' ? 'Ativa' : sessao.status ===
                 'pausada' ? 'Pausada' : sessao.status === 'concluida' ?
@@ -64,13 +65,17 @@
                   </div>
                 </div>
 
+                <div id="status-area">
                 <% if (sessao.status === 'aguardando_inicio') { %>
                 <div class="alert alert-info">
                   <strong>Aguardando início da sessão...</strong>
                   <% if (isHost) { %>
-                  <div class="mt-2">
+                  <div class="mt-4 d-flex justify-content-between">
                     <button id="iniciarSessaoBtn" class="btn btn-success">
                       Iniciar Sessão
+                    </button>
+                    <button id="concluirSessaoBtn" class="btn btn-danger">
+                      Concluir Sessão
                     </button>
                   </div>
                   <% } %>
@@ -82,6 +87,9 @@
                   <div class="mt-2">
                     <button id="continuarSessaoBtn" class="btn btn-success">
                       Continuar Sessão
+                    </button>
+                    <button id="concluirSessaoBtn" class="btn btn-danger">
+                      Concluir Sessão
                     </button>
                   </div>
                   <% } %>
@@ -133,6 +141,7 @@
                   <strong>Esta sessão foi concluída</strong>
                 </div>
                 <% } %>
+                </div>
               </div>
             </div>
             <div class="card-footer">
@@ -145,207 +154,377 @@
       </div>
     </div>
 
-
     <script src="/js/socket.io.js"></script>
     <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // Variáveis para controle da sessão
-    const sessaoId = '<%= sessao._id %>';
-    const isHost = <%= isHost %>;
-    
-    // Inicializar uma única instância do socket com logs detalhados
-    console.log("Tentando conectar ao socket.io...");
-    
-    // Adicionar listeners para eventos de conexão
-    const socket = io({
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    });
-    
-    // Eventos de conexão para depuração
-    socket.on('connect', () => {
-      console.log("Socket conectado com sucesso! ID:", socket.id);
-      
-      // Teste básico de ping-pong após conexão
-      console.log("Enviando ping de teste...");
-      socket.emit('ping', { userId: "<%= user._id %>", timestamp: new Date().toISOString() });
-    });
-    
-    socket.on('connect_error', (error) => {
-      console.error("Erro de conexão socket:", error);
-    });
-    
-    socket.on('connect_timeout', () => {
-      console.error("Timeout na conexão socket");
-    });
-    
-    socket.on('reconnect', (attemptNumber) => {
-      console.log("Reconectado ao socket após", attemptNumber, "tentativas");
-    });
-    
-    socket.on('reconnect_error', (error) => {
-      console.error("Erro na reconexão:", error);
-    });
-    
-    socket.on('pong', (data) => {
-      console.log("Pong recebido do servidor:", data);
-    });
-    
-    console.log("Socket inicializado, aguardando conexão...");
-    
-    // Após confirmar conexão básica, tentar entrar na sala
-    socket.on('connect', () => {
-      // Entrar na sala da sessão
-      console.log("Enviando evento entrarSessao para sessão:", "<%= sessao._id %>");
-      socket.emit("entrarSessao", { sessaoId: "<%= sessao._id %>" });
+      document.addEventListener('DOMContentLoaded', function() {
+        // Variáveis para controle da sessão
+        const sessaoId = '<%= sessao._id %>';
+        const userId = '<%= user._id %>';
+        const isHost = <%= isHost %>;
+        
+        console.log("Inicializando com sessaoId:", sessaoId);
+        console.log("Usuário:", userId);
+        console.log("É host:", isHost);
 
-    });
-    
-    // Atualizar lista de participantes
-    socket.on("atualizarParticipantes", ({ participantes }) => {
-      console.log("Recebido evento atualizarParticipantes:", participantes);
-      const container = document.getElementById("participantes-container");
-      container.innerHTML = participantes.map(participante => `
-        <div class="col-md-3 mb-2" id="participante-${participante._id}">
-          <div class="d-flex align-items-center">
-            <img src="${participante.imagemPerfil || '/images/default-profile.png'}" 
-                 alt="${participante.nick || participante.nome}" 
-                 class="rounded-circle me-2" width="30" height="30">
-            <span>${participante.nick || participante.nome}</span>
-          </div>
-        </div>
-      `).join("");
-    });
-
-    // Lidar com expulsão de participantes
-    socket.on("participanteExpulso", ({ participanteId }) => {
-      console.log("Recebido evento participanteExpulso:", participanteId);
-      const elemento = document.getElementById(`participante-${participanteId}`);
-      if (elemento) elemento.remove();
-    });
-
-    // Atualizar status da sessão
-    socket.on("atualizarStatus", ({ novoStatus }) => {
-      console.log("Recebido evento atualizarStatus:", novoStatus);
-      location.reload(); // Recarrega a página para atualizar a UI completa
-    });
-    
-    // Eventos de sessão
-    socket.on("sessaoIniciada", ({ nivelAtual, tempoRestante }) => {
-      console.log("Recebido evento sessaoIniciada:", { nivelAtual, tempoRestante });
-      location.reload(); // Recarregar para mostrar a interface de sessão ativa
-    });
-    
-    socket.on("sessaoPausada", ({ mensagem }) => {
-      console.log("Recebido evento sessaoPausada:", mensagem);
-      location.reload();
-    });
-    
-    socket.on("sessaoConcluida", ({ mensagem }) => {
-      console.log("Recebido evento sessaoConcluida:", mensagem);
-      location.reload();
-    });
-    
-    socket.on("tempoAtualizado", ({ nivel, tempoRestante }) => {
-      console.log("Recebido evento tempoAtualizado:", { nivel, tempoRestante });
-      const tempoRestanteEl = document.getElementById('tempoRestante');
-      const progressBar = document.getElementById('progressBar');
-      
-      if (tempoRestanteEl) {
-        tempoRestanteEl.textContent = tempoRestante;
-      }
-      
-      if (progressBar) {
-        // Assumindo que o tempo máximo é 60 segundos (ajustar conforme necessário)
-        const tempoMaximo = 60; 
-        progressBar.style.width = (tempoRestante / tempoMaximo * 100) + '%';
-      }
-    });
-    
-    socket.on("erro", ({ mensagem }) => {
-      console.error("Erro recebido do servidor:", mensagem);
-      alert("Erro: " + mensagem);
-    });
-
-    // Botões de controle (apenas para o host)
-    if (isHost) {
-      const iniciarBtn = document.getElementById('iniciarSessaoBtn');
-      const continuarBtn = document.getElementById('continuarSessaoBtn');
-      const pausarBtn = document.getElementById('pausarSessaoBtn');
-      const concluirBtn = document.getElementById('concluirSessaoBtn');
-
-      if (iniciarBtn) {
-        iniciarBtn.addEventListener('click', function() {
-          console.log("Botão iniciar clicado, emitindo evento iniciarSessao");
-          socket.emit("iniciarSessao", { sessaoId });
-        });
-      }
-
-      if (continuarBtn) {
-        continuarBtn.addEventListener('click', function() {
-          console.log("Botão continuar clicado, emitindo evento iniciarSessao");
-          socket.emit("iniciarSessao", { sessaoId });
-        });
-      }
-
-      if (pausarBtn) {
-        pausarBtn.addEventListener('click', function() {
-          console.log("Botão pausar clicado, emitindo evento pausarSessao");
-          socket.emit("pausarSessao", { sessaoId });
-        });
-      }
-
-      if (concluirBtn) {
-        concluirBtn.addEventListener('click', function() {
-          if (confirm('Tem certeza que deseja concluir esta sessão? Esta ação não pode ser desfeita.')) {
-            console.log("Botão concluir clicado, emitindo evento concluirSessao");
-            socket.emit("concluirSessao", { sessaoId });
+        // Inicializar socket com autenticação
+        const socket = io({
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          auth: {
+            userId: userId
           }
         });
-      }
-    }
-    // Formulário de submissão de palavras
-    const formSubmeterPalavras = document.getElementById('formSubmeterPalavras');
-    if (formSubmeterPalavras) {
-      formSubmeterPalavras.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const palavrasInput = document.getElementById('palavrasInput');
-        const palavras = palavrasInput.value.split(',').map(p => p.trim()).filter(p => p);
 
-        if (palavras.length === 0) {
-          alert('Por favor, digite pelo menos uma ideia.');
-          return;
-        }
-        
-        // Usar socket para submeter palavras em vez de fetch
-        console.log("Submetendo palavras via socket:", palavras);
-        socket.emit("submeterPalavra", {
-          sessaoId,
-          nivel: 1, // Nível atual
-          palavra: palavras.join(', ') // Enviar todas as palavras como uma única string
+        // Eventos de conexão para depuração
+        socket.on('connect', () => {
+          console.log("Socket conectado com sucesso! ID:", socket.id);
+          
+          // Entrar na sala da sessão
+          socket.emit("entrarSessao", {
+            sessaoId: sessaoId,
+            userId: userId
+          });
+          
+          console.log("Evento entrarSessao emitido para sessão:", sessaoId);
         });
-        
-        // Limpar o campo após submissão
-        palavrasInput.value = '';
+
+        // Eventos de erro e reconexão
+        socket.on('connect_error', (error) => {
+          console.error("Erro de conexão socket:", error);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+          console.log("Reconectado ao socket após", attemptNumber, "tentativas");
+          // Reentrar na sala após reconexão
+          socket.emit("entrarSessao", {
+            sessaoId: sessaoId,
+            userId: userId
+          });
+        });
+
+        // Evento de entrada confirmada
+        socket.on('entradaConfirmada', (data) => {
+          console.log("Entrada na sessão confirmada:", data);
+        });
+
+        // Evento de participante entrou
+        socket.on('participanteEntrou', (data) => {
+          console.log("Novo participante entrou:", data);
+          // Não recarregar a página, a lista será atualizada pelo evento atualizarParticipantes
+        });
+
+        // Atualizar lista de participantes
+        socket.on("atualizarParticipantes", ({ participantes }) => {
+          console.log("Recebido evento atualizarParticipantes:", participantes);
+          if (!participantes || !Array.isArray(participantes)) {
+            console.error("Dados de participantes inválidos:", participantes);
+            return;
+          }
+          
+          const container = document.getElementById("participantes-container");
+          if (!container) {
+            console.error("Container de participantes não encontrado");
+            return;
+          }
+
+          // Usar Map para evitar duplicatas
+          const participantesMap = new Map();
+          participantes.forEach(p => {
+            if (p && p._id) {
+              participantesMap.set(p._id.toString(), p);
+            }
+          });
+
+          // Atualizar apenas os elementos modificados
+          container.querySelectorAll("[id^='participante-']").forEach(el => {
+            const id = el.id.split("-")[1];
+            if (!participantesMap.has(id)) el.remove();
+          });
+
+          // Adicionar novos participantes
+          participantesMap.forEach((p, id) => {
+            if (!document.getElementById(`participante-${id}`)) {
+              const div = document.createElement("div");
+              div.className = "col-md-3 mb-2";
+              div.id = `participante-${id}`;
+              div.innerHTML = `
+                <div class="d-flex align-items-center">
+                  <img src="${p.imagemPerfil || '/images/default-profile.png'}"
+                       alt="${p.nick || p.nome}"
+                       class="rounded-circle me-2" width="30" height="30">
+                  <span>${p.nick || p.nome}</span>
+                </div>
+              `;
+              container.appendChild(div);
+            }
+          });
+        });
+
+        // Lidar com expulsão de participantes
+        socket.on("participanteExpulso", ({ participanteId }) => {
+          console.log("Recebido evento participanteExpulso:", participanteId);
+          const elemento = document.getElementById(`participante-${participanteId}`);
+          if (elemento) elemento.remove();
+          
+          // Se o usuário atual foi expulso
+          if (participanteId === userId) {
+            alert("Você foi expulso da sessão pelo host");
+            window.location.href = "/sessoes";
+          }
+        });
+
+        // Eventos de mudança de status da sessão
+        socket.on("sessaoIniciada", (data) => {
+          console.log("Recebido evento sessaoIniciada:", data);
+          atualizarStatusUI('ativa');
+        });
+
+        socket.on("sessaoPausada", (data) => {
+          console.log("Recebido evento sessaoPausada:", data);
+          atualizarStatusUI('pausada');
+        });
+
+        socket.on("sessaoConcluida", (data) => {
+          console.log("Recebido evento sessaoConcluida:", data);
+          atualizarStatusUI('concluida');
+        });
+
+        // Função para atualizar a UI sem recarregar a página
+        function atualizarStatusUI(novoStatus) {
+          console.log("Atualizando UI para status:", novoStatus);
+          
+          // Atualizar badge de status
+          const statusBadge = document.getElementById('status-badge');
+          if (statusBadge) {
+            statusBadge.className = `badge ${
+              novoStatus === 'ativa' ? 'bg-success' : 
+              novoStatus === 'pausada' ? 'bg-warning' : 
+              novoStatus === 'concluida' ? 'bg-danger' : 'bg-secondary'
+            }`;
+            
+            statusBadge.textContent = 
+              novoStatus === 'ativa' ? 'Ativa' : 
+              novoStatus === 'pausada' ? 'Pausada' : 
+              novoStatus === 'concluida' ? 'Concluída' : 'Aguardando Início';
+          }
+          
+          // Atualizar área de status
+          const statusArea = document.getElementById('status-area');
+          if (statusArea) {
+            if (novoStatus === 'aguardando_inicio') {
+              statusArea.innerHTML = `
+                <div class="alert alert-info">
+                  <strong>Aguardando início da sessão...</strong>
+                  ${isHost ? `
+                  <div class="mt-4 d-flex justify-content-between">
+                    <button id="iniciarSessaoBtn" class="btn btn-success">
+                      Iniciar Sessão
+                    </button>
+                    <button id="concluirSessaoBtn" class="btn btn-danger">
+                      Concluir Sessão
+                    </button>
+                  </div>
+                  ` : ''}
+                </div>
+              `;
+            } else if (novoStatus === 'pausada') {
+              statusArea.innerHTML = `
+                <div class="alert alert-warning">
+                  <strong>Sessão pausada pelo host</strong>
+                  ${isHost ? `
+                  <div class="mt-2">
+                    <button id="continuarSessaoBtn" class="btn btn-success">
+                      Continuar Sessão
+                    </button>
+                    <button id="concluirSessaoBtn" class="btn btn-danger">
+                      Concluir Sessão
+                    </button>
+                  </div>
+                  ` : ''}
+                </div>
+              `;
+            } else if (novoStatus === 'ativa') {
+              statusArea.innerHTML = `
+                <div id="nivelAtivo" class="mb-4 text-bright">
+                  <h5>Nível Atual: <span id="nivelAtualNum">1</span></h5>
+                  <div class="progress mb-2">
+                    <div
+                      id="progressBar"
+                      class="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar"
+                      style="width: 100%"
+                    ></div>
+                  </div>
+                  <p>
+                    Tempo restante: <span id="tempoRestante">60</span> segundos
+                  </p>
+                </div>
+
+                <div id="submissaoArea" class="mb-4 text-bright">
+                  <h5>Submeta suas ideias</h5>
+                  <form id="formSubmeterPalavras">
+                    <div class="mb-3">
+                      <textarea
+                        class="form-control"
+                        id="palavrasInput"
+                        rows="3"
+                        placeholder="Digite suas ideias separadas por vírgula"
+                      ></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-custom">
+                      Submeter Ideias
+                    </button>
+                  </form>
+                </div>
+
+                ${isHost ? `
+                <div class="mt-4 d-flex justify-content-between">
+                  <button id="pausarSessaoBtn" class="btn btn-warning">
+                    Pausar Sessão
+                  </button>
+                  <button id="concluirSessaoBtn" class="btn btn-danger">
+                    Concluir Sessão
+                  </button>
+                </div>
+                ` : ''}
+              `;
+            } else if (novoStatus === 'concluida') {
+              statusArea.innerHTML = `
+                <div class="alert alert-danger">
+                  <strong>Esta sessão foi concluída</strong>
+                </div>
+              `;
+            }
+            
+            // Reconfigurar os event listeners após atualizar o DOM
+            configurarBotoes();
+          } else {
+            // Se não conseguir atualizar a UI, recarregar a página
+            location.reload();
+          }
+        }
+
+        // Atualizar tempo restante
+        socket.on("tempoAtualizado", ({ nivel, tempoRestante }) => {
+          console.log("Recebido evento tempoAtualizado:", { nivel, tempoRestante });
+          const tempoRestanteEl = document.getElementById('tempoRestante');
+          const progressBar = document.getElementById('progressBar');
+          const nivelAtualEl = document.getElementById('nivelAtualNum');
+
+          if (nivelAtualEl) {
+            nivelAtualEl.textContent = nivel;
+          }
+
+          if (tempoRestanteEl) {
+            tempoRestanteEl.textContent = tempoRestante;
+          }
+
+          if (progressBar) {
+            // Assumindo que o tempo máximo é 60 segundos (ajustar conforme necessário)
+            const tempoMaximo = 60;
+            progressBar.style.width = (tempoRestante / tempoMaximo * 100) + '%';
+          }
+        });
+
+        // Tratar erros
+        socket.on("erro", ({ mensagem }) => {
+          console.error("Erro recebido do servidor:", mensagem);
+          alert("Erro: " + mensagem);
+        });
+
+        // Função para configurar os botões de controle
+        function configurarBotoes() {
+          if (isHost) {
+            const iniciarBtn = document.getElementById('iniciarSessaoBtn');
+            const continuarBtn = document.getElementById('continuarSessaoBtn');
+            const pausarBtn = document.getElementById('pausarSessaoBtn');
+            const concluirBtn = document.getElementById('concluirSessaoBtn');
+
+            if (iniciarBtn) {
+              iniciarBtn.addEventListener('click', function() {
+                console.log("Botão iniciar clicado, emitindo evento iniciarSessao");
+                socket.emit("iniciarSessao", { sessaoId: sessaoId });
+              });
+            }
+
+            if (continuarBtn) {
+              continuarBtn.addEventListener('click', function() {
+                console.log("Botão continuar clicado, emitindo evento iniciarSessao");
+                socket.emit("iniciarSessao", { sessaoId: sessaoId });
+              });
+            }
+
+            if (pausarBtn) {
+              pausarBtn.addEventListener('click', function() {
+                console.log("Botão pausar clicado, emitindo evento pausarSessao");
+                socket.emit("pausarSessao", { sessaoId: sessaoId });
+              });
+            }
+
+            if (concluirBtn) {
+              concluirBtn.addEventListener('click', function() {
+                if (confirm('Tem certeza que deseja concluir esta sessão? Esta ação não pode ser desfeita.')) {
+                  console.log("Botão concluir clicado, emitindo evento concluirSessao");
+                  socket.emit("concluirSessao", { sessaoId: sessaoId });
+                }
+              });
+            }
+          }
+
+          // Formulário de submissão de palavras
+          const formSubmeterPalavras = document.getElementById('formSubmeterPalavras');
+          if (formSubmeterPalavras) {
+            formSubmeterPalavras.addEventListener('submit', function(e) {
+              e.preventDefault();
+              const palavrasInput = document.getElementById('palavrasInput');
+              if (!palavrasInput || !palavrasInput.value.trim()) {
+                alert('Por favor, digite pelo menos uma ideia.');
+                return;
+              }
+
+              const palavras = palavrasInput.value.split(',').map(p => p.trim()).filter(p => p);
+              if (palavras.length === 0) {
+                alert('Por favor, digite pelo menos uma ideia válida.');
+                return;
+              }
+
+              console.log("Submetendo palavras:", palavras);
+              socket.emit("submeterPalavra", {
+                sessaoId: sessaoId,
+                nivel: parseInt(document.getElementById('nivelAtualNum')?.textContent || '1'),
+                palavra: palavras.join(', ')
+              });
+
+              palavrasInput.value = '';
+              alert('Ideias submetidas com sucesso!');
+            });
+          }
+        }
+
+        // Configurar botões iniciais
+        configurarBotoes();
+
+        // Botão de sair da sessão
+        const sairBtn = document.querySelector('a[href="/sessoes/<%= sessao._id %>"]');
+        if (sairBtn) {
+          sairBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log("Botão sair clicado, emitindo evento sairSessao");
+            socket.emit("sairSessao", {
+              sessaoId: sessaoId,
+              userId: userId
+            });
+
+            // Aguardar confirmação antes de redirecionar
+            setTimeout(() => {
+              window.location.href = "/sessoes/<%= sessao._id %>";
+            }, 500);
+          });
+        }
       });
-    }
-    
-    // Ouvir confirmação de palavra aceita
-    socket.on("palavraAceite", ({ palavra, nivel }) => {
-      console.log("Palavra aceita:", palavra, "no nível", nivel);
-      // Opcional: mostrar feedback visual de sucesso
-    });
-    
-    // Ouvir atualização de ranking
-    socket.on("rankingAtualizado", ({ ranking }) => {
-      console.log("Ranking atualizado:", ranking);
-      // Implementar atualização visual do ranking se necessário
-    });
-  });
-</script>
+    </script>
 
     <%- include('../partials/footer') %>
   </body>

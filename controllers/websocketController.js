@@ -43,48 +43,50 @@ const inicializarWebSocket = (server) => {
   // Conexão estabelecida
   io.on("connection", (socket) => {
     console.log(
-      `Utilizador conectado: ${socket.user.nick || socket.user.nome}`
+      `Utilizador conectado: ${socket.user?.nick || socket.user?.nome || 'Anônimo'} (ID: ${socket.user?._id || 'desconhecido'})`
     );
 
     // Entrar numa sala de sessão
     socket.on("entrarSessao", async ({ sessaoId }) => {
       try {
-        // Verificar se a sessão existe
+        console.log(`Cliente ${socket.id} tentando entrar na sessão ${sessaoId}`);
+        
+        if (!socket.user || !socket.user._id) {
+          socket.emit("erro", { mensagem: "Autenticação necessária" });
+          return;
+        }
+        
+        // Entrar na sala da sessão primeiro
+        socket.join(`sessao:${sessaoId}`);
+        console.log(`Cliente ${socket.id} entrou na sala sessao:${sessaoId}`);
+        
+        // Confirmar entrada para o cliente
+        socket.emit("entradaConfirmada", { 
+          sessaoId,
+          message: "Entrada na sessão confirmada" 
+        });
+        
+        // Buscar sessão com dados populados
         const sessao = await Sessao.findById(sessaoId)
           .populate("host", "nome nick imagemPerfil")
           .populate("participantes", "nome nick imagemPerfil");
-        io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
-          participantes: sessao.participantes,
-        });
+
         if (!sessao) {
           socket.emit("erro", { mensagem: "Sessão não encontrada" });
           return;
         }
-        const participantesAtuais = await Sessao.findById(sessaoId).populate(
-          "participantes",
-          "nome nick imagemPerfil"
-        );
 
-        if (participantesAtuais) {
-          // Enviar lista atualizada para TODOS na sala
-          io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
-            participantes: participantesAtuais.participantes,
-          });
-        }
-        // Verificar se o utilizador é participante
+        // Verificar se o utilizador é o host ou participante
+        const isHost = sessao.host._id.toString() === socket.user._id.toString();
         const isParticipante = sessao.participantes.some(
           (p) => p._id.toString() === socket.user._id.toString()
         );
 
-        if (!isParticipante) {
-          socket.emit("erro", {
-            mensagem: "Você não é participante desta sessão",
-          });
-          return;
-        }
-
-        // Entrar na sala da sessão
-        socket.join(`sessao:${sessaoId}`);
+        // Notificar todos na sala que um novo participante entrou
+        socket.to(`sessao:${sessaoId}`).emit("participanteEntrou", {
+          participante: socket.user,
+        });
+        console.log(`Notificando que ${socket.user.nick || socket.user.nome} entrou na sessão ${sessaoId}`);
 
         // Inicializar dados da sessão se ainda não existirem
         if (!sessoesDados.has(sessaoId)) {
@@ -114,17 +116,21 @@ const inicializarWebSocket = (server) => {
           ranking: dadosSessao.ranking,
         });
 
-        // Notificar todos na sala que um novo participante entrou
-        socket.to(`sessao:${sessaoId}`).emit("participanteEntrou", {
-          participante: socket.user,
-        });
-
-        console.log(
-          `${socket.user.nick || socket.user.nome} entrou na sessão ${sessaoId}`
+        // Buscar dados atualizados e enviar para todos
+        const sessaoAtualizada = await Sessao.findById(sessaoId).populate(
+          "participantes",
+          "nome nick imagemPerfil"
         );
+
+        if (sessaoAtualizada) {
+          io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
+            participantes: sessaoAtualizada.participantes,
+          });
+          console.log(`Evento 'atualizarParticipantes' emitido para a sala sessao:${sessaoId}`);
+        }
       } catch (err) {
         console.error("Erro ao entrar na sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao entrar na sessão" });
+        socket.emit("erro", { mensagem: "Erro ao entrar na sessão: " + err.message });
       }
     });
 
@@ -185,6 +191,8 @@ const inicializarWebSocket = (server) => {
     // Iniciar sessão (apenas host)
     socket.on("iniciarSessao", async ({ sessaoId }) => {
       try {
+        console.log(`Tentativa de iniciar sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
+        
         const sessao = await Sessao.findById(sessaoId);
 
         if (!sessao) {
@@ -203,13 +211,14 @@ const inicializarWebSocket = (server) => {
         // Atualizar status da sessão
         sessao.status = "ativa";
         await sessao.save();
+        console.log(`Status da sessão ${sessaoId} atualizado para 'ativa'`);
 
         // Inicializar ou atualizar dados da sessão
         if (!sessoesDados.has(sessaoId)) {
           sessoesDados.set(sessaoId, {
             nivelAtual: 1,
             status: "ativa",
-            tempoRestante: sessao.configuracaoNiveis[0].segundos,
+            tempoRestante: sessao.configuracaoNiveis[0]?.segundos || 60,
             participantesPalavras: new Map(),
             ranking: [],
           });
@@ -217,7 +226,7 @@ const inicializarWebSocket = (server) => {
           const dadosSessao = sessoesDados.get(sessaoId);
           dadosSessao.nivelAtual = 1;
           dadosSessao.status = "ativa";
-          dadosSessao.tempoRestante = sessao.configuracaoNiveis[0].segundos;
+          dadosSessao.tempoRestante = sessao.configuracaoNiveis[0]?.segundos || 60;
         }
 
         // Iniciar temporizador para o nível
@@ -226,8 +235,10 @@ const inicializarWebSocket = (server) => {
         // Notificar todos na sala que a sessão foi iniciada
         io.to(`sessao:${sessaoId}`).emit("sessaoIniciada", {
           nivelAtual: 1,
-          tempoRestante: sessao.configuracaoNiveis[0].segundos,
+          tempoRestante: sessao.configuracaoNiveis[0]?.segundos || 60,
+          status: 'ativa'
         });
+        console.log(`Evento 'sessaoIniciada' emitido para a sala sessao:${sessaoId}`);
 
         console.log(
           `Sessão ${sessaoId} iniciada pelo host ${
@@ -236,13 +247,15 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao iniciar sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao iniciar sessão" });
+        socket.emit("erro", { mensagem: "Erro ao iniciar sessão: " + err.message });
       }
     });
 
     // Pausar sessão (apenas host)
     socket.on("pausarSessao", async ({ sessaoId }) => {
       try {
+        console.log(`Tentativa de pausar sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
+        
         const sessao = await Sessao.findById(sessaoId);
 
         if (!sessao) {
@@ -261,6 +274,7 @@ const inicializarWebSocket = (server) => {
         // Atualizar status da sessão
         sessao.status = "pausada";
         await sessao.save();
+        console.log(`Status da sessão ${sessaoId} atualizado para 'pausada'`);
 
         // Atualizar dados da sessão
         if (sessoesDados.has(sessaoId)) {
@@ -271,7 +285,9 @@ const inicializarWebSocket = (server) => {
         // Notificar todos na sala que a sessão foi pausada
         io.to(`sessao:${sessaoId}`).emit("sessaoPausada", {
           mensagem: "A sessão foi pausada pelo host",
+          status: 'pausada'
         });
+        console.log(`Evento 'sessaoPausada' emitido para a sala sessao:${sessaoId}`);
 
         console.log(
           `Sessão ${sessaoId} pausada pelo host ${
@@ -280,13 +296,15 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao pausar sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao pausar sessão" });
+        socket.emit("erro", { mensagem: "Erro ao pausar sessão: " + err.message });
       }
     });
 
     // Concluir sessão (apenas host)
     socket.on("concluirSessao", async ({ sessaoId }) => {
       try {
+        console.log(`Tentativa de concluir sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
+        
         const sessao = await Sessao.findById(sessaoId);
 
         if (!sessao) {
@@ -305,6 +323,7 @@ const inicializarWebSocket = (server) => {
         // Atualizar status da sessão
         sessao.status = "concluida";
         await sessao.save();
+        console.log(`Status da sessão ${sessaoId} atualizado para 'concluida'`);
 
         // Limpar dados da sessão
         sessoesDados.delete(sessaoId);
@@ -312,7 +331,9 @@ const inicializarWebSocket = (server) => {
         // Notificar todos na sala que a sessão foi concluída
         io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
           mensagem: "A sessão foi concluída pelo host",
+          status: 'concluida'
         });
+        console.log(`Evento 'sessaoConcluida' emitido para a sala sessao:${sessaoId}`);
 
         console.log(
           `Sessão ${sessaoId} concluída pelo host ${
@@ -321,7 +342,7 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao concluir sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao concluir sessão" });
+        socket.emit("erro", { mensagem: "Erro ao concluir sessão: " + err.message });
       }
     });
 
@@ -355,15 +376,16 @@ const inicializarWebSocket = (server) => {
           socket.emit("erro", { mensagem: "O host não pode ser expulso" });
           return;
         }
-        io.to(`sessao:${sessaoId}`).emit("participanteExpulso", {
-          participanteId: participanteId,
-        });
+
         // Remover participante da sessão
         sessao.participantes = sessao.participantes.filter(
           (p) => p.toString() !== participanteId
         );
 
         // Registrar ação no histórico
+        if (!sessao.historicoAcoes) {
+          sessao.historicoAcoes = [];
+        }
         sessao.historicoAcoes.push({
           tipo: "expulsao",
           executadoPor: socket.user._id,
@@ -374,24 +396,25 @@ const inicializarWebSocket = (server) => {
 
         await sessao.save();
 
-        // Notificar o participante expulso
-        const participanteSockets = await io
-          .in(`sessao:${sessaoId}`)
-          .fetchSockets();
-        for (const s of participanteSockets) {
-          if (s.user && s.user._id.toString() === participanteId) {
-            s.emit("expulsado", {
-              mensagem: "Você foi expulso da sessão pelo host",
-            });
-            s.leave(`sessao:${sessaoId}`);
-          }
-        }
-
         // Notificar todos na sala que um participante foi expulso
         io.to(`sessao:${sessaoId}`).emit("participanteExpulso", {
           participanteId,
           participanteNome: participante.nick || participante.nome,
         });
+        console.log(`Evento 'participanteExpulso' emitido para a sala sessao:${sessaoId}`);
+
+        // Buscar dados atualizados e enviar para todos
+        const sessaoAtualizada = await Sessao.findById(sessaoId).populate(
+          "participantes",
+          "nome nick imagemPerfil"
+        );
+
+        if (sessaoAtualizada) {
+          io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
+            participantes: sessaoAtualizada.participantes,
+          });
+          console.log(`Evento 'atualizarParticipantes' emitido após expulsão para a sala sessao:${sessaoId}`);
+        }
 
         console.log(
           `Participante ${
@@ -400,56 +423,106 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao expulsar participante:", err);
-        socket.emit("erro", { mensagem: "Erro ao expulsar participante" });
+        socket.emit("erro", { mensagem: "Erro ao expulsar participante: " + err.message });
+      }
+    });
+
+    // Sair da sessão
+    socket.on("sairSessao", async ({ sessaoId, userId }) => {
+      try {
+        console.log(`Cliente ${socket.id} tentando sair da sessão ${sessaoId}`);
+        
+        // Sair da sala da sessão
+        socket.leave(`sessao:${sessaoId}`);
+        console.log(`Cliente ${socket.id} saiu da sala sessao:${sessaoId}`);
+        
+        // Se userId fornecido, remover da lista de participantes no banco de dados
+        if (userId) {
+          const sessao = await Sessao.findById(sessaoId);
+          
+          if (sessao && !sessao.host.equals(userId)) { // Não remover o host
+            // Remover participante da sessão
+            sessao.participantes = sessao.participantes.filter(p => !p.equals(userId));
+            await sessao.save();
+            
+            // Buscar dados atualizados e enviar para todos
+            const sessaoAtualizada = await Sessao.findById(sessaoId)
+              .populate("host", "nome nick imagemPerfil")
+              .populate("participantes", "nome nick imagemPerfil");
+              
+            if (sessaoAtualizada) {
+              io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
+                participantes: sessaoAtualizada.participantes
+              });
+              console.log(`Evento 'atualizarParticipantes' emitido após saída para a sala sessao:${sessaoId}`);
+            }
+          }
+        }
+        
+        // Notificar o cliente que saiu com sucesso
+        socket.emit("saidaConfirmada", { 
+          sessaoId,
+          message: "Saída da sessão confirmada" 
+        });
+      } catch (err) {
+        console.error("Erro ao sair da sessão:", err);
+        socket.emit("erro", { mensagem: "Erro ao sair da sessão: " + err.message });
       }
     });
 
     socket.on("atualizarStatus", async ({ sessaoId, novoStatus }) => {
-      await Sessao.findByIdAndUpdate(sessaoId, { status: novoStatus });
-      io.to(`sessao:${sessaoId}`).emit("atualizarStatus", { novoStatus });
+      try {
+        await Sessao.findByIdAndUpdate(sessaoId, { status: novoStatus });
+        io.to(`sessao:${sessaoId}`).emit("atualizarStatus", { novoStatus });
+        console.log(`Evento 'atualizarStatus' emitido para a sala sessao:${sessaoId}`);
+      } catch (err) {
+        console.error("Erro ao atualizar status:", err);
+        socket.emit("erro", { mensagem: "Erro ao atualizar status: " + err.message });
+      }
     });
+    
     // Desconexão
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
+      if (!socket.user) return;
+      
       console.log(
         `Utilizador desconectado: ${socket.user.nick || socket.user.nome}`
       );
-      socket.on("disconnect", async () => {
-        console.log(
-          `Utilizador desconectado: ${socket.user.nick || socket.user.nome}`
-        );
 
-        // Atualizar lista de participantes para todos na sala
-        const salas = Array.from(socket.rooms).filter((room) =>
-          room.startsWith("sessao:")
-        );
-        for (const sala of salas) {
-          const sessaoId = sala.split(":")[1];
-          const sessao = await Sessao.findById(sessaoId).populate(
+      // Atualizar todas as salas que o usuário estava
+      const salas = Array.from(socket.rooms).filter((room) =>
+        room.startsWith("sessao:")
+      );
+      
+      for (const sala of salas) {
+        const sessaoId = sala.split(":")[1];
+        const sessao = await Sessao.findById(sessaoId);
+
+        if (sessao) {
+          // Não remover o host automaticamente ao desconectar
+          if (sessao.host.toString() !== socket.user._id.toString()) {
+            // Remover o usuário da sessão
+            sessao.participantes = sessao.participantes.filter(
+              (p) => p.toString() !== socket.user._id.toString()
+            );
+            await sessao.save();
+          }
+
+          // Buscar dados atualizados e enviar para todos
+          const sessaoAtualizada = await Sessao.findById(sessaoId).populate(
             "participantes",
             "nome nick imagemPerfil"
           );
 
-          if (sessao) {
+          if (sessaoAtualizada) {
             io.to(sala).emit("atualizarParticipantes", {
-              participantes: sessao.participantes,
+              participantes: sessaoAtualizada.participantes,
             });
+            console.log(`Evento 'atualizarParticipantes' emitido após desconexão para a sala ${sala}`);
           }
         }
-      });
-    });
-
-    const atualizarListaParticipantes = async (sessaoId) => {
-      const sessao = await Sessao.findById(sessaoId).populate(
-        "participantes",
-        "nome nick imagemPerfil"
-      );
-
-      if (sessao) {
-        io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
-          participantes: sessao.participantes,
-        });
       }
-    };
+    });
   });
 
   return io;
@@ -574,6 +647,7 @@ const finalizarSessao = async (io, sessaoId, sessao) => {
     // Notificar todos na sala que a sessão foi concluída
     io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
       mensagem: "A sessão foi concluída automaticamente",
+      status: 'concluida'
     });
 
     console.log(`Sessão ${sessaoId} concluída automaticamente`);

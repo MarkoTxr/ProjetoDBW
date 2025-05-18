@@ -19,7 +19,7 @@ import userRoutes from "./routes/userRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import connectDB from "./config/database.js";
 import apiRoute from "./routes/apiRoutes.js";
-import { inicializarWebSocket } from "./controllers/websocketController.js";
+
 
 // Conexão à base de dados MongoDB
 connectDB();
@@ -33,13 +33,8 @@ const app = express();
 const server = http.createServer(app);
 
 // Inicializar Socket.IO diretamente (sem usar o controller por enquanto)
-const io = new Server(server, {
-  cors: {
-    origin: "*", // Permitir qualquer origem durante testes
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
+import { inicializarWebSocket } from "./controllers/websocketController.js";
+const io = inicializarWebSocket(server);
 
 // Configurar eventos básicos do Socket.IO
 io.on('connection', (socket) => {
@@ -79,7 +74,12 @@ io.on('connection', (socket) => {
         if (sessao) {
           // Emitir evento de atualização para todos na sala
           io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
-            participantes: sessao.participantes
+            participantes: sessao.participantes.map(p => ({
+              _id: p._id,
+              nome: p.nome,
+              nick: p.nick,
+              imagemPerfil: p.imagemPerfil
+            }))
           });
           console.log(`Evento 'atualizarParticipantes' emitido para a sala sessao:${sessaoId}`);
         }
@@ -89,6 +89,53 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error("Erro ao entrar na sessão:", err);
       socket.emit("erro", { mensagem: "Erro ao entrar na sessão" });
+    }
+  });
+  
+  // Sair de uma sala de sessão
+  socket.on("sairSessao", async ({ sessaoId, userId }) => {
+    console.log(`Cliente ${socket.id} tentando sair da sessão ${sessaoId}`);
+    try {
+      // Sair da sala da sessão
+      socket.leave(`sessao:${sessaoId}`);
+      console.log(`Cliente ${socket.id} saiu da sala sessao:${sessaoId}`);
+      
+      // Se userId fornecido, remover da lista de participantes no banco de dados
+      if (userId) {
+        try {
+          const Sessao = await import('./models/sessao.js').then(m => m.default);
+          const sessao = await Sessao.findById(sessaoId);
+          
+          if (sessao && !sessao.host.equals(userId)) { // Não remover o host
+            // Remover participante da sessão
+            sessao.participantes = sessao.participantes.filter(p => !p.equals(userId));
+            await sessao.save();
+            
+            // Buscar dados atualizados e enviar para todos
+            const sessaoAtualizada = await Sessao.findById(sessaoId)
+              .populate("host", "nome nick imagemPerfil")
+              .populate("participantes", "nome nick imagemPerfil");
+              
+            if (sessaoAtualizada) {
+              io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
+                participantes: sessaoAtualizada.participantes
+              });
+              console.log(`Evento 'atualizarParticipantes' emitido após saída para a sala sessao:${sessaoId}`);
+            }
+          }
+        } catch (err) {
+          console.error("Erro ao remover participante da sessão:", err);
+        }
+      }
+      
+      // Notificar o cliente que saiu com sucesso
+      socket.emit("saidaConfirmada", { 
+        sessaoId,
+        message: "Saída da sessão confirmada" 
+      });
+    } catch (err) {
+      console.error("Erro ao sair da sessão:", err);
+      socket.emit("erro", { mensagem: "Erro ao sair da sessão" });
     }
   });
   

@@ -104,7 +104,7 @@ const criarSessao = async (req, res) => {
     await novaSessao.save();
 
     req.flash('success', 'Sessão criada com sucesso!');
-    res.redirect(`/sessoes/${novaSessao._id}`);
+    res.redirect(`/sessoes/${novaSessao._id}/participar`);
     
   } catch (err) {
     console.error('Erro na criação:', err);
@@ -202,20 +202,50 @@ const participarSessao = async (req, res) => {
       return res.redirect("/sessoes");
     }
     
-    // Verificar se o usuário é participante
-    const isParticipante = sessao.participantes.some(p => p._id.equals(req.user._id));
-    
-    if (!isParticipante) {
-      req.flash("error", "Você não é participante desta sessão");
-      return res.redirect("/sessoes");
-    }
-    
     // Verificar se o usuário é o host
     const isHost = sessao.host._id.equals(req.user._id);
     
+    // Verificar se o usuário é participante
+    const isParticipante = sessao.participantes.some(p => p._id.equals(req.user._id));
+    
+    // Se não for participante, adicionar automaticamente (exceto se a sessão estiver concluída)
+    if (!isParticipante && !isHost && sessao.status !== "concluida") {
+      // Verificar se adicionar este participante excederia o limite
+      if (sessao.participantes.length >= 50) {
+        req.flash("error", "Esta sessão já atingiu o limite máximo de 50 participantes");
+        return res.redirect("/sessoes");
+      }
+      
+      // Adicionar usuário como participante
+      sessao.participantes.push(req.user._id);
+      await sessao.save();
+      
+      // Recarregar a sessão com os dados atualizados
+      const sessaoAtualizada = await Sessao.findById(id)
+        .populate("host", "nome nick imagemPerfil")
+        .populate({
+          path: "participantes",
+          select: "nome nick imagemPerfil",
+          options: { strictPopulate: false }
+        });
+      
+      if (sessaoAtualizada) {
+        // Emitir evento via socket para todos os participantes
+        const io = req.app.get('io');
+        if (io) {
+          io.to(`sessao:${id}`).emit('atualizarParticipantes', { 
+            participantes: sessaoAtualizada.participantes
+          });
+        }
+      }
+    } else if (sessao.status === "concluida" && !isParticipante && !isHost) {
+      req.flash("error", "Esta sessão já foi concluída");
+      return res.redirect("/sessoes");
+    }
+    
     res.render("sessoes/participar", { 
       sessao,
-      isHost,
+      isHost: isHost || false,
       user: req.user,
       titulo: `Participando: ${sessao.tema}`
     });
@@ -232,17 +262,20 @@ const iniciarSessao = async (req, res) => {
     const sessao = await Sessao.findById(id);
     
     if (!sessao) {
-      return res.status(404).json({ success: false, message: "Sessão não encontrada" });
+      req.flash("error", "Sessão não encontrada");
+      return res.redirect("/sessoes");
     }
     
     // Verificar se o usuário é o host
     if (!sessao.host.equals(req.user._id)) {
-      return res.status(403).json({ success: false, message: "Apenas o host pode iniciar a sessão" });
+      req.flash("error", "Apenas o host pode iniciar a sessão");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
     // Verificar se a sessão pode ser iniciada
     if (sessao.status !== "aguardando_inicio" && sessao.status !== "pausada") {
-      return res.status(400).json({ success: false, message: "A sessão não pode ser iniciada neste momento" });
+      req.flash("error", "A sessão não pode ser iniciada neste momento");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
     // Atualizar status da sessão
@@ -250,7 +283,6 @@ const iniciarSessao = async (req, res) => {
     await sessao.save();
     
     // Emitir evento via socket para todos os participantes
-    // Obter a instância global do io
     const io = req.app.get('io');
     if (io) {
       io.to(`sessao:${id}`).emit('sessaoIniciada', { 
@@ -261,13 +293,16 @@ const iniciarSessao = async (req, res) => {
       console.log(`Evento 'sessaoIniciada' emitido para a sala sessao:${id}`);
     } else {
       console.error('Instância do Socket.IO não encontrada no app');
+      req.flash("error", "Erro ao iniciar sessão: Socket.IO não disponível");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
-    // Resposta para AJAX (mantida para compatibilidade)
-    return res.json({ success: true, message: "Sessão iniciada com sucesso" });
+    req.flash('success', 'Sessão iniciada com sucesso!');
+    return res.redirect(`/sessoes/${id}/participar`);
   } catch (err) {
     console.error('Erro ao iniciar sessão:', err);
-    return res.status(500).json({ success: false, message: "Erro ao iniciar sessão: " + err.message });
+    req.flash("error", "Erro ao iniciar sessão: " + err.message);
+    return res.redirect(`/sessoes/${req.params.id}/participar`);
   }
 };
 
@@ -278,17 +313,20 @@ const pausarSessao = async (req, res) => {
     const sessao = await Sessao.findById(id);
     
     if (!sessao) {
-      return res.status(404).json({ success: false, message: "Sessão não encontrada" });
+      req.flash("error", "Sessão não encontrada");
+      return res.redirect("/sessoes");
     }
     
     // Verificar se o usuário é o host
     if (!sessao.host.equals(req.user._id)) {
-      return res.status(403).json({ success: false, message: "Apenas o host pode pausar a sessão" });
+      req.flash("error", "Apenas o host pode pausar a sessão");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
     // Verificar se a sessão pode ser pausada
     if (sessao.status !== "ativa") {
-      return res.status(400).json({ success: false, message: "A sessão não pode ser pausada neste momento" });
+      req.flash("error", "A sessão não pode ser pausada neste momento");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
     // Atualizar status da sessão
@@ -316,13 +354,16 @@ const pausarSessao = async (req, res) => {
       console.log(`Evento 'sessaoPausada' emitido para a sala sessao:${id}`);
     } else {
       console.error('Instância do Socket.IO não encontrada no app');
+      req.flash("error", "Erro ao pausar sessão: Socket.IO não disponível");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
     
-    // Resposta para AJAX (mantida para compatibilidade)
-    return res.json({ success: true, message: "Sessão pausada com sucesso" });
+    req.flash('success', 'Sessão pausada com sucesso!');
+    return res.redirect(`/sessoes/${id}/participar`);
   } catch (err) {
     console.error('Erro ao pausar sessão:', err);
-    return res.status(500).json({ success: false, message: "Erro ao pausar sessão: " + err.message });
+    req.flash("error", "Erro ao pausar sessão: " + err.message);
+    return res.redirect(`/sessoes/${req.params.id}/participar`);
   }
 };
 
@@ -333,12 +374,14 @@ const concluirSessao = async (req, res) => {
     const sessao = await Sessao.findById(id);
     
     if (!sessao) {
-      return res.status(404).json({ success: false, message: "Sessão não encontrada" });
+      req.flash("error", "Sessão não encontrada");
+      return res.redirect("/sessoes");
     }
 
     // Verificar se o usuário é o host
     if (!sessao.host.equals(req.user._id)) {
-      return res.status(403).json({ success: false, message: "Apenas o host pode concluir a sessão" });
+      req.flash("error", "Apenas o host pode concluir a sessão");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
 
     // 1. Atualizar participantes
@@ -370,13 +413,16 @@ const concluirSessao = async (req, res) => {
       console.log(`Evento 'sessaoConcluida' emitido para a sala sessao:${id}`);
     } else {
       console.error('Instância do Socket.IO não encontrada no app');
+      req.flash("error", "Erro ao concluir sessão: Socket.IO não disponível");
+      return res.redirect(`/sessoes/${id}/participar`);
     }
 
-    // Resposta para AJAX (mantida para compatibilidade)
-    return res.json({ success: true, message: "Sessão concluída com sucesso" });
-
+    req.flash('success', 'Sessão concluída com sucesso!');
+    return res.redirect(`/sessoes/${id}/participar`);
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Erro ao concluir sessão: " + err.message });
+    console.error('Erro ao concluir sessão:', err);
+    req.flash("error", "Erro ao concluir sessão: " + err.message);
+    return res.redirect(`/sessoes/${req.params.id}/participar`);
   }
 };
 
