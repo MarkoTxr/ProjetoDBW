@@ -1,12 +1,14 @@
 // routes/homeRoutes.js
 import express from "express";
+
 const router = express.Router();
 import {
-    listarSessoes
-} from "../controllers/sessaoController.js";
+    getIndex
+} from "../controllers/homeController.js";
 
 
 
-router.get("/", listarSessoes);
+
+router.get("/", getIndex);
 
 export default router;
