@@ -458,17 +458,19 @@ const inicializarWebSocket = (server) => {
         });
         console.log(listaIdeias);
         // 5. Notificar todos com dados completos
-        io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
-          mensagem: "A sessão foi concluída pelo host",
-          status: "concluida",
-          resultadoIA,
-          listaIdeias,
-        });
+
+        
         
         // 6. Limpar dados da memória
         sessoesDados.delete(sessaoId);
 
         console.log(`Sessão ${sessaoId} concluída com resultados IA salvos`);
+        io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
+          mensagem: "A sessão foi concluída pelo host",
+          status: "concluida",
+          resultadoSessao: resultadoIA,
+          ideias:listaIdeias,
+        });
       } catch (err) {
         console.error("Erro ao concluir sessão:", err);
         socket.emit("erro", {

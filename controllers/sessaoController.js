@@ -490,6 +490,7 @@ const expulsarParticipante = async (req, res) => {
   }
 };
 
+
 // Submeter palavras para um nível
 const submeterPalavras = async (req, res) => {
   try {
