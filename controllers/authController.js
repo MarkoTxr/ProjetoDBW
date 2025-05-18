@@ -1,5 +1,14 @@
 import passport from "passport";
 import User from "../models/user.js";
+import jwt from 'jsonwebtoken';
+
+const gerarToken = (user) => {
+  return jwt.sign(
+    { id: user._id, nick: user.nick }, // Payload
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' } // Tempo de expiração
+  );
+};
 
 const loginGet = async (req, res) => {
   res.render("login");

@@ -23,18 +23,29 @@ const ResultadoAISchema = new Schema({
     type: String,
     required: [true, "O texto gerado pela AI é obrigatório"],
   },
-  participante: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: [true, "O participante relacionado é obrigatório"],
-  },
   timestamp: {
     type: Date,
     default: Date.now,
   },
-  nivel: {
-    type: Number,
-    required: [true, "O nível associado é obrigatório"],
+});
+const IdeiaSchema = new Schema({
+  texto: {
+    type: String,
+    trim: true,
+    maxlength: [500, "A ideia não pode exceder 500 caracteres"],
+    validate: {
+      validator: (v) => v === null || (typeof v === 'string' && v.trim().length > 0),
+      message: "Ideia não pode ser apenas espaços em branco",
+    },
+  },
+  autor: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: [true, "O autor da ideia é obrigatório"],
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
   },
 });
 
@@ -67,23 +78,30 @@ const SessaoSchema = new Schema(
       required: [true, "O host da sessão é obrigatório"],
     },
     participantes: {
-      type: [{
-        type: Schema.Types.ObjectId,
-        ref: "User"
-      }],
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
       validate: {
-        validator: function(participantes) {
+        validator: function (participantes) {
           return participantes.length <= 50;
         },
-        message: "Máximo de 50 participantes por sessão"
+        message: "Máximo de 50 participantes por sessão",
+      },
+    },
+     ideias: {
+      type: [IdeiaSchema],
+      set: function(ideias) {
+        // Filtra ideias vazias antes de salvar
+        return ideias.filter(ideia => 
+          ideia.texto && 
+          typeof ideia.texto === 'string' && 
+          ideia.texto.trim().length > 0
+        );
       }
     },
-    ideias: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Ideia",
-      },
-    ],
     configuracaoNiveis: {
       type: [NivelSchema],
       required: [true, "A configuração de níveis é obrigatória"],
@@ -105,7 +123,7 @@ const SessaoSchema = new Schema(
     },
     resultadosAI: {
       type: [ResultadoAISchema],
-      select: false, // 👈 Não retornar por padrão em queries
+      select: false, 
     },
     salaProtegida: {
       type: Boolean,

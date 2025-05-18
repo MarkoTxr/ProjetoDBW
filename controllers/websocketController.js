@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import Sessao from "../models/sessao.js";
 import User from "../models/user.js";
-
+import axios from "axios";
 /**
  * Controller para WebSockets
  * Gerencia a comunicação em tempo real para as sessões de brainstorming
@@ -13,6 +13,25 @@ const sessoesDados = new Map();
 // Inicializa o WebSocket Server
 const inicializarWebSocket = (server) => {
   const io = new Server(server);
+
+  const chatGeral = io.of("/chat-geral");
+
+  // Middleware de autenticação
+  chatGeral.use(async (socket, next) => {
+    try {
+      const user = await User.findById(socket.handshake.auth.userId);
+      if (!user) return next(new Error("Acesso não autorizado"));
+
+      socket.userData = {
+        id: user._id,
+        nome: user.nome,
+        nick: user.nick,
+      };
+      next();
+    } catch (err) {
+      next(new Error("Erro de autenticação"));
+    }
+  });
 
   // Middleware para autenticação
   io.use(async (socket, next) => {
@@ -43,29 +62,33 @@ const inicializarWebSocket = (server) => {
   // Conexão estabelecida
   io.on("connection", (socket) => {
     console.log(
-      `Utilizador conectado: ${socket.user?.nick || socket.user?.nome || 'Anônimo'} (ID: ${socket.user?._id || 'desconhecido'})`
+      `Utilizador conectado: ${
+        socket.user?.nick || socket.user?.nome || "Anônimo"
+      } (ID: ${socket.user?._id || "desconhecido"})`
     );
 
     // Entrar numa sala de sessão
     socket.on("entrarSessao", async ({ sessaoId }) => {
       try {
-        console.log(`Cliente ${socket.id} tentando entrar na sessão ${sessaoId}`);
-        
+        console.log(
+          `Cliente ${socket.id} tentando entrar na sessão ${sessaoId}`
+        );
+
         if (!socket.user || !socket.user._id) {
           socket.emit("erro", { mensagem: "Autenticação necessária" });
           return;
         }
-        
+
         // Entrar na sala da sessão primeiro
         socket.join(`sessao:${sessaoId}`);
         console.log(`Cliente ${socket.id} entrou na sala sessao:${sessaoId}`);
-        
+
         // Confirmar entrada para o cliente
-        socket.emit("entradaConfirmada", { 
+        socket.emit("entradaConfirmada", {
           sessaoId,
-          message: "Entrada na sessão confirmada" 
+          message: "Entrada na sessão confirmada",
         });
-        
+
         // Buscar sessão com dados populados
         const sessao = await Sessao.findById(sessaoId)
           .populate("host", "nome nick imagemPerfil")
@@ -77,7 +100,8 @@ const inicializarWebSocket = (server) => {
         }
 
         // Verificar se o utilizador é o host ou participante
-        const isHost = sessao.host._id.toString() === socket.user._id.toString();
+        const isHost =
+          sessao.host._id.toString() === socket.user._id.toString();
         const isParticipante = sessao.participantes.some(
           (p) => p._id.toString() === socket.user._id.toString()
         );
@@ -86,7 +110,11 @@ const inicializarWebSocket = (server) => {
         socket.to(`sessao:${sessaoId}`).emit("participanteEntrou", {
           participante: socket.user,
         });
-        console.log(`Notificando que ${socket.user.nick || socket.user.nome} entrou na sessão ${sessaoId}`);
+        console.log(
+          `Notificando que ${
+            socket.user.nick || socket.user.nome
+          } entrou na sessão ${sessaoId}`
+        );
 
         // Inicializar dados da sessão se ainda não existirem
         if (!sessoesDados.has(sessaoId)) {
@@ -126,11 +154,15 @@ const inicializarWebSocket = (server) => {
           io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
             participantes: sessaoAtualizada.participantes,
           });
-          console.log(`Evento 'atualizarParticipantes' emitido para a sala sessao:${sessaoId}`);
+          console.log(
+            `Evento 'atualizarParticipantes' emitido para a sala sessao:${sessaoId}`
+          );
         }
       } catch (err) {
         console.error("Erro ao entrar na sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao entrar na sessão: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao entrar na sessão: " + err.message,
+        });
       }
     });
 
@@ -156,6 +188,13 @@ const inicializarWebSocket = (server) => {
           return;
         }
 
+        const palavraTratada = palavra.trim();
+        if (!palavraTratada || palavraTratada.length > 500) {
+          socket.emit("erro", {
+            mensagem: "Palavra inválida (máximo 500 caracteres e não vazia)",
+          });
+          return;
+        }
         // Adicionar palavra à lista do utilizador
         const palavrasUtilizador =
           dadosSessao.participantesPalavras.get(socket.user._id.toString()) ||
@@ -166,6 +205,34 @@ const inicializarWebSocket = (server) => {
           palavrasUtilizador
         );
 
+        await Sessao.findByIdAndUpdate(
+          sessaoId,
+          {
+            $push: {
+              ideias: {
+                texto: palavraTratada,
+                autor: socket.user._id,
+                timestamp: new Date(),
+              },
+            },
+          },
+          {
+            new: true,
+            runValidators: true, // Ativa validações do schema
+          }
+        );
+        await User.findByIdAndUpdate(
+          socket.user._id,
+          {
+            $inc: { "metricas.ideiasContribuidas": 1 },
+          },
+          { new: true }
+        );
+        console.log(
+          "Palavra submetida com sucesso:",
+          socket.user._id,
+          palavraTratada
+        );
         // Atualizar ranking
         atualizarRanking(sessaoId);
 
@@ -191,8 +258,12 @@ const inicializarWebSocket = (server) => {
     // Iniciar sessão (apenas host)
     socket.on("iniciarSessao", async ({ sessaoId }) => {
       try {
-        console.log(`Tentativa de iniciar sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
-        
+        console.log(
+          `Tentativa de iniciar sessão ${sessaoId} por ${
+            socket.user?.nick || socket.user?.nome || "desconhecido"
+          }`
+        );
+
         const sessao = await Sessao.findById(sessaoId);
 
         if (!sessao) {
@@ -226,7 +297,8 @@ const inicializarWebSocket = (server) => {
           const dadosSessao = sessoesDados.get(sessaoId);
           dadosSessao.nivelAtual = 1;
           dadosSessao.status = "ativa";
-          dadosSessao.tempoRestante = sessao.configuracaoNiveis[0]?.segundos || 60;
+          dadosSessao.tempoRestante =
+            sessao.configuracaoNiveis[0]?.segundos || 60;
         }
 
         // Iniciar temporizador para o nível
@@ -236,9 +308,11 @@ const inicializarWebSocket = (server) => {
         io.to(`sessao:${sessaoId}`).emit("sessaoIniciada", {
           nivelAtual: 1,
           tempoRestante: sessao.configuracaoNiveis[0]?.segundos || 60,
-          status: 'ativa'
+          status: "ativa",
         });
-        console.log(`Evento 'sessaoIniciada' emitido para a sala sessao:${sessaoId}`);
+        console.log(
+          `Evento 'sessaoIniciada' emitido para a sala sessao:${sessaoId}`
+        );
 
         console.log(
           `Sessão ${sessaoId} iniciada pelo host ${
@@ -247,15 +321,21 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao iniciar sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao iniciar sessão: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao iniciar sessão: " + err.message,
+        });
       }
     });
 
     // Pausar sessão (apenas host)
     socket.on("pausarSessao", async ({ sessaoId }) => {
       try {
-        console.log(`Tentativa de pausar sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
-        
+        console.log(
+          `Tentativa de pausar sessão ${sessaoId} por ${
+            socket.user?.nick || socket.user?.nome || "desconhecido"
+          }`
+        );
+
         const sessao = await Sessao.findById(sessaoId);
 
         if (!sessao) {
@@ -285,9 +365,11 @@ const inicializarWebSocket = (server) => {
         // Notificar todos na sala que a sessão foi pausada
         io.to(`sessao:${sessaoId}`).emit("sessaoPausada", {
           mensagem: "A sessão foi pausada pelo host",
-          status: 'pausada'
+          status: "pausada",
         });
-        console.log(`Evento 'sessaoPausada' emitido para a sala sessao:${sessaoId}`);
+        console.log(
+          `Evento 'sessaoPausada' emitido para a sala sessao:${sessaoId}`
+        );
 
         console.log(
           `Sessão ${sessaoId} pausada pelo host ${
@@ -296,23 +378,31 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao pausar sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao pausar sessão: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao pausar sessão: " + err.message,
+        });
       }
     });
 
     // Concluir sessão (apenas host)
     socket.on("concluirSessao", async ({ sessaoId }) => {
       try {
-        console.log(`Tentativa de concluir sessão ${sessaoId} por ${socket.user?.nick || socket.user?.nome || 'desconhecido'}`);
-        
-        const sessao = await Sessao.findById(sessaoId);
+        console.log(
+          `Tentativa de concluir sessão ${sessaoId} por ${
+            socket.user?.nick || socket.user?.nome || "desconhecido"
+          }`
+        );
+
+        const sessao = await Sessao.findById(sessaoId)
+          .populate("ideias.autor", "nick") // Popula os nicks dos autores
+          .populate("participantes", "nick")
+          .select("+resultadosAI");
 
         if (!sessao) {
           socket.emit("erro", { mensagem: "Sessão não encontrada" });
           return;
         }
 
-        // Verificar se o utilizador é o host
         if (sessao.host.toString() !== socket.user._id.toString()) {
           socket.emit("erro", {
             mensagem: "Apenas o host pode concluir a sessão",
@@ -320,29 +410,70 @@ const inicializarWebSocket = (server) => {
           return;
         }
 
-        // Atualizar status da sessão
+        // 1. Gerar resultado da IA
+        let resultadoIA = "Nenhuma solução gerada";
+        try {
+          resultadoIA = await generateBrainmasterSolution(
+            sessao.tema,
+            sessao.ideias
+          );
+          
+          // Salvar resultado na sessão
+          if (!sessao.resultadosAI) {
+            sessao.resultadosAI = [];
+          }
+
+          sessao.resultadosAI.push({
+            texto: resultadoIA,
+            timestamp: new Date(),
+          });
+          await sessao.save();
+        } catch (iaError) {
+          console.error("Erro na IA:", iaError);
+          resultadoIA = "Falha ao gerar solução automática";
+        }
+
+        // 2. Criar lista de ideias com nicknames
+        const listaIdeias = sessao.ideias.map((ideia) => ({
+          texto: ideia.texto,
+          nick: ideia.autor.nick || "Anônimo",
+          timestamp: ideia.timestamp,
+        }));
+
+        // 3. Atualizar status e salvar
         sessao.status = "concluida";
         await sessao.save();
-        console.log(`Status da sessão ${sessaoId} atualizado para 'concluida'`);
 
-        // Limpar dados da sessão
-        sessoesDados.delete(sessaoId);
+        // 4. Atualizar métricas dos usuários
+        await User.updateMany(
+          { _id: { $in: sessao.participantes } },
+          {
+            $addToSet: { sessoesParticipadas: sessao._id },
+            $inc: { "metricas.sessoesParticipadas": 1 },
+          }
+        );
 
-        // Notificar todos na sala que a sessão foi concluída
+        await User.findByIdAndUpdate(sessao.host, {
+          $inc: { "metricas.sessoesCriadas": 1 },
+        });
+        console.log(listaIdeias);
+        // 5. Notificar todos com dados completos
         io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
           mensagem: "A sessão foi concluída pelo host",
-          status: 'concluida'
+          status: "concluida",
+          resultadoIA,
+          listaIdeias,
         });
-        console.log(`Evento 'sessaoConcluida' emitido para a sala sessao:${sessaoId}`);
+        
+        // 6. Limpar dados da memória
+        sessoesDados.delete(sessaoId);
 
-        console.log(
-          `Sessão ${sessaoId} concluída pelo host ${
-            socket.user.nick || socket.user.nome
-          }`
-        );
+        console.log(`Sessão ${sessaoId} concluída com resultados IA salvos`);
       } catch (err) {
         console.error("Erro ao concluir sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao concluir sessão: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao concluir sessão: " + err.message,
+        });
       }
     });
 
@@ -401,7 +532,9 @@ const inicializarWebSocket = (server) => {
           participanteId,
           participanteNome: participante.nick || participante.nome,
         });
-        console.log(`Evento 'participanteExpulso' emitido para a sala sessao:${sessaoId}`);
+        console.log(
+          `Evento 'participanteExpulso' emitido para a sala sessao:${sessaoId}`
+        );
 
         // Buscar dados atualizados e enviar para todos
         const sessaoAtualizada = await Sessao.findById(sessaoId).populate(
@@ -413,7 +546,9 @@ const inicializarWebSocket = (server) => {
           io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
             participantes: sessaoAtualizada.participantes,
           });
-          console.log(`Evento 'atualizarParticipantes' emitido após expulsão para a sala sessao:${sessaoId}`);
+          console.log(
+            `Evento 'atualizarParticipantes' emitido após expulsão para a sala sessao:${sessaoId}`
+          );
         }
 
         console.log(
@@ -423,7 +558,9 @@ const inicializarWebSocket = (server) => {
         );
       } catch (err) {
         console.error("Erro ao expulsar participante:", err);
-        socket.emit("erro", { mensagem: "Erro ao expulsar participante: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao expulsar participante: " + err.message,
+        });
       }
     });
 
@@ -431,42 +568,49 @@ const inicializarWebSocket = (server) => {
     socket.on("sairSessao", async ({ sessaoId, userId }) => {
       try {
         console.log(`Cliente ${socket.id} tentando sair da sessão ${sessaoId}`);
-        
+
         // Sair da sala da sessão
         socket.leave(`sessao:${sessaoId}`);
         console.log(`Cliente ${socket.id} saiu da sala sessao:${sessaoId}`);
-        
+
         // Se userId fornecido, remover da lista de participantes no banco de dados
         if (userId) {
           const sessao = await Sessao.findById(sessaoId);
-          
-          if (sessao && !sessao.host.equals(userId)) { // Não remover o host
+
+          if (sessao && !sessao.host.equals(userId)) {
+            // Não remover o host
             // Remover participante da sessão
-            sessao.participantes = sessao.participantes.filter(p => !p.equals(userId));
+            sessao.participantes = sessao.participantes.filter(
+              (p) => !p.equals(userId)
+            );
             await sessao.save();
-            
+
             // Buscar dados atualizados e enviar para todos
             const sessaoAtualizada = await Sessao.findById(sessaoId)
               .populate("host", "nome nick imagemPerfil")
               .populate("participantes", "nome nick imagemPerfil");
-              
+
             if (sessaoAtualizada) {
               io.to(`sessao:${sessaoId}`).emit("atualizarParticipantes", {
-                participantes: sessaoAtualizada.participantes
+                participantes: sessaoAtualizada.participantes,
               });
-              console.log(`Evento 'atualizarParticipantes' emitido após saída para a sala sessao:${sessaoId}`);
+              console.log(
+                `Evento 'atualizarParticipantes' emitido após saída para a sala sessao:${sessaoId}`
+              );
             }
           }
         }
-        
+
         // Notificar o cliente que saiu com sucesso
-        socket.emit("saidaConfirmada", { 
+        socket.emit("saidaConfirmada", {
           sessaoId,
-          message: "Saída da sessão confirmada" 
+          message: "Saída da sessão confirmada",
         });
       } catch (err) {
         console.error("Erro ao sair da sessão:", err);
-        socket.emit("erro", { mensagem: "Erro ao sair da sessão: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao sair da sessão: " + err.message,
+        });
       }
     });
 
@@ -474,17 +618,21 @@ const inicializarWebSocket = (server) => {
       try {
         await Sessao.findByIdAndUpdate(sessaoId, { status: novoStatus });
         io.to(`sessao:${sessaoId}`).emit("atualizarStatus", { novoStatus });
-        console.log(`Evento 'atualizarStatus' emitido para a sala sessao:${sessaoId}`);
+        console.log(
+          `Evento 'atualizarStatus' emitido para a sala sessao:${sessaoId}`
+        );
       } catch (err) {
         console.error("Erro ao atualizar status:", err);
-        socket.emit("erro", { mensagem: "Erro ao atualizar status: " + err.message });
+        socket.emit("erro", {
+          mensagem: "Erro ao atualizar status: " + err.message,
+        });
       }
     });
-    
+
     // Desconexão
     socket.on("disconnect", async () => {
       if (!socket.user) return;
-      
+
       console.log(
         `Utilizador desconectado: ${socket.user.nick || socket.user.nome}`
       );
@@ -493,7 +641,7 @@ const inicializarWebSocket = (server) => {
       const salas = Array.from(socket.rooms).filter((room) =>
         room.startsWith("sessao:")
       );
-      
+
       for (const sala of salas) {
         const sessaoId = sala.split(":")[1];
         const sessao = await Sessao.findById(sessaoId);
@@ -518,13 +666,43 @@ const inicializarWebSocket = (server) => {
             io.to(sala).emit("atualizarParticipantes", {
               participantes: sessaoAtualizada.participantes,
             });
-            console.log(`Evento 'atualizarParticipantes' emitido após desconexão para a sala ${sala}`);
+            console.log(
+              `Evento 'atualizarParticipantes' emitido após desconexão para a sala ${sala}`
+            );
           }
         }
       }
     });
   });
+  chatGeral.on("connection", (socket) => {
+    console.log(`Usuário conectado ao chat: ${socket.userData.nick}`);
 
+    // Evento para receber mensagens
+    socket.on("enviarMensagem", async ({ mensagem }) => {
+      try {
+        // Gerar resposta IA
+        const resposta = await gerarRespostaIA(mensagem);
+        console.log("Resposta IA gerada:", resposta);
+        // Construir objeto da mensagem
+        const msgCompleta = {
+          usuario: socket.userData,
+          conteudo: mensagem,
+          respostaIA: resposta,
+          timestamp: new Date(),
+        };
+
+        // Broadcast para todos os usuários
+        console.log("Enviando broadcast:", msgCompleta);
+        chatGeral.emit("novaMensagem", msgCompleta);
+      } catch (err) {
+        console.error("Erro no chat:", err);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`Usuário desconectado: ${socket.userData.nick}`);
+    });
+  });
   return io;
 };
 
@@ -647,7 +825,7 @@ const finalizarSessao = async (io, sessaoId, sessao) => {
     // Notificar todos na sala que a sessão foi concluída
     io.to(`sessao:${sessaoId}`).emit("sessaoConcluida", {
       mensagem: "A sessão foi concluída automaticamente",
-      status: 'concluida'
+      status: "concluida",
     });
 
     console.log(`Sessão ${sessaoId} concluída automaticamente`);
@@ -677,4 +855,85 @@ const atualizarRanking = (sessaoId) => {
   dadosSessao.ranking = ranking;
 };
 
+async function gerarRespostaIA(mensagem) {
+  try {
+    let LM_STUDIO_URL = "http://89.109.76.139:1234/v1/chat/completions";
+    const response = await axios.post(LM_STUDIO_URL, {
+      messages: [
+        {
+          role: "system",
+          content:
+            "Responda em português de forma curta (máximo 2 frases). Formato proibido: markdown, listas.",
+        },
+        {
+          role: "user",
+          content: mensagem,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 80,
+    });
+
+    return response.data.choices[0].message.content
+      .replace(/<think>.*<\/think>/gs, "")
+      .trim();
+  } catch (err) {
+    return "Estou aprendendo ainda, pergunte outra coisa!";
+  }
+}
+
+async function generateBrainmasterSolution(tema, ideias) {
+  let LM_STUDIO_URL = "http://89.109.76.139:1234/v1/chat/completions";
+  try {
+    const response = await axios.post(LM_STUDIO_URL, {
+      messages: [
+        {
+          role: "system",
+          content: `Sua tarefa é combinar APENAS as ideias fornecidas em uma solução coerente. Regras estritas:
+            
+            1. USE EXCLUSIVAMENTE as ideias listadas pelo utilizador
+            2. NÃO adicione novos elementos ou suposições
+            3. Combine as ideias de forma lógica
+            4. Formato obrigatório:
+               ### Solução Integrada ###
+               [Título]
+               - [Ideia 1 integrada e adaptada]
+               - [Ideia 2 integrada e adaptada]
+               [...]`,
+        },
+        {
+          role: "user",
+          content: `Tema: "${tema}"
+          
+          Ideias para integrar:
+          ${
+            ideias
+              .map((ideia, index) => `${index + 1}. ${ideia.texto}`)
+              .join("\n") || "Nenhuma ideia submetida"
+          }
+          
+          Forneça apenas a solução prática final.`,
+        },
+      ],
+      model: "llama-3.2-1b-claude-3.7-sonnet-reasoning-distilled",
+      temperature: 0.5,
+      max_tokens: 1500,
+      stream: false,
+    });
+
+    // Processamento para remover qualquer vestígio de raciocínio
+    const rawResponse = response.data.choices[0].message.content;
+    const cleanSolution = rawResponse
+      .split("</think>")
+      .pop() // Remove tudo antes do fechamento do think
+      .replace(/<think>[\s\S]*?<\/think>/g, "") // Remove qualquer think remanescente
+      .replace(/^[#]+.*?(?=### Solução Integrada ###)/ims, "") // Remove cabeçalhos anteriores
+      .trim();
+
+    return cleanSolution || "Solução não gerada";
+  } catch (error) {
+    console.error("Erro na síntese:", error.response?.data || error.message);
+    throw error;
+  }
+}
 export { inicializarWebSocket };

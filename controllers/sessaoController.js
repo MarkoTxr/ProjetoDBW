@@ -513,14 +513,31 @@ const submeterPalavras = async (req, res) => {
     if (sessao.status !== "ativa") {
       return res.status(400).json({ success: false, message: "A sessão não está ativa" });
     }
-    
-    // Aqui seria implementada a lógica para salvar as palavras submetidas
-    // Por enquanto, apenas retornamos sucesso como placeholder
-    
+
+    // Adicionar cada palavra como nova ideia
+    const novasIdeias = palavras.map(palavra => ({
+      texto: palavra,
+      autor: req.user._id,
+      timestamp: new Date()
+    }));
+
+    // Atualizar array de ideias usando operador MongoDB $push
+    await Sessao.findByIdAndUpdate(
+      id,
+      {
+        $push: { 
+          ideias: { 
+            $each: novasIdeias.filter(ideia => ideia.texto.trim().length > 0)
+          } 
+        }
+      },
+      { new: true }
+    );
+
     return res.json({ 
       success: true, 
       message: "Palavras submetidas com sucesso",
-      palavrasCount: palavras.length
+      palavrasCount: novasIdeias.length
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: "Erro ao submeter palavras: " + err.message });

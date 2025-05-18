@@ -1,0 +1,231 @@
+<div class="chat-container">
+  <!-- Botão flutuante -->
+  <div class="chat-toggle" onclick="toggleChat()">
+    <i class="fas fa-comment-alt"></i>
+  </div>
+
+  <!-- Container do chat -->
+  <div class="chat-box">
+    <!-- Cabeçalho -->
+    <div class="chat-header">
+      <h3>IA HelpDesk</h3>
+      <button class="close-btn" onclick="toggleChat()">&times;</button>
+    </div>
+
+    <!-- Área de mensagens -->
+    <div class="chat-messages">
+      <div class="message bot text-muted">
+        <p>Olá! Como posso ajudar?</p>
+        
+      </div>
+    </div>
+
+    <!-- Input de mensagem -->
+    <div class="chat-input">
+      <input
+        type="text"
+        placeholder="Digite sua mensagem..."
+        id="chatMessage"
+      />
+      <button class="send-btn" onclick="sendMessage()">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .chat-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+  }
+
+  .chat-toggle {
+    background: #25d366;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+
+  .chat-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  .chat-toggle i {
+    color: white;
+    font-size: 1.5rem;
+  }
+
+  .chat-box {
+    width: 300px;
+    height: 400px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden; /* Novo */
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+    position: absolute; /* Novo */
+    bottom: 75px; /* Novo */
+    right: 0; /* Novo */
+  }
+
+  .chat-box.active {
+    opacity: 1;
+    visibility: visible; /* Novo */
+    transform: translateY(0);
+  }
+
+  .chat-header {
+    background: #128c7e;
+    color: white;
+    padding: 15px;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background: #f0f2f5;
+  }
+
+  .message {
+    margin: 10px 0;
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 80%;
+  }
+
+  .message.bot {
+    background: white;
+    align-self: flex-start;
+  }
+
+  .message.user {
+    background: #dcf8c6;
+    align-self: flex-end;
+  }
+
+  .time {
+    font-size: 0.7rem;
+    color: #666;
+    display: block;
+    margin-top: 5px;
+  }
+
+  .chat-input {
+    display: flex;
+    padding: 15px;
+    background: white;
+    border-radius: 0 0 20px 20px;
+  }
+
+  .chat-input input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 25px;
+    margin-right: 10px;
+  }
+
+  .send-btn {
+    background: #25d366;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+
+  .send-btn:hover {
+    background: #128c7e;
+  }
+
+  .hidden {
+    display: none;
+  }
+</style><script src="/socket.io/socket.io.js"></script>
+<script>
+  // 1) Conexão ao namespace /chat-geral com autenticação
+  const socketChat = io('/chat-geral', {
+    auth: { userId: '<%= user._id %>' }
+  });
+
+  // 2) Toggle da janela de chat
+  function toggleChat() {
+    const chatBox = document.querySelector('.chat-box');
+    chatBox.classList.toggle('active');
+    if (chatBox.classList.contains('active')) {
+      chatBox.style.display = 'flex';
+    } else {
+      setTimeout(() => { chatBox.style.display = 'none'; }, 300);
+    }
+  }
+
+  // 3) Envio de mensagem (apenas uma definição)
+  function sendMessage() {
+    const input = document.getElementById('chatMessage');
+    const mensagem = input.value.trim();
+    if (!mensagem) return;
+
+    // Mostra imediatamente a tua mensagem no chat
+    const container = document.querySelector('.chat-messages');
+    const userDiv = document.createElement('div');
+    userDiv.className = 'message user';
+    userDiv.innerHTML = `
+      <p>${mensagem}</p>
+      <span class="time">${new Date().toLocaleTimeString()}</span>
+    `;
+    container.appendChild(userDiv);
+    container.scrollTop = container.scrollHeight;
+
+    // Emite para o servidor
+    socketChat.emit('enviarMensagem', { mensagem });
+    input.value = '';
+  }
+
+  // 4) Listener para a resposta da IA
+  socketChat.on('novaMensagem', (data) => {
+    const container = document.querySelector('.chat-messages');
+
+    // Cria o bloco da IA
+    const iaDiv = document.createElement('div');
+    iaDiv.className = 'message bot';
+    iaDiv.innerHTML = `
+      <p><em>Assistente:</em> ${data.respostaIA}</p>
+      <span class="time">${new Date(data.timestamp).toLocaleTimeString()}</span>
+    `;
+    container.appendChild(iaDiv);
+    container.scrollTop = container.scrollHeight;
+  });
+
+  // 5) Enter para enviar
+  document.getElementById('chatMessage')
+    .addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+</script>
