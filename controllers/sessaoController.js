@@ -249,9 +249,24 @@ const iniciarSessao = async (req, res) => {
     sessao.status = "ativa";
     await sessao.save();
     
-    // Resposta para AJAX
+    // Emitir evento via socket para todos os participantes
+    // Obter a instância global do io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`sessao:${id}`).emit('sessaoIniciada', { 
+        nivelAtual: 1, 
+        tempoRestante: sessao.configuracaoNiveis[0]?.segundos || 60,
+        status: 'ativa'
+      });
+      console.log(`Evento 'sessaoIniciada' emitido para a sala sessao:${id}`);
+    } else {
+      console.error('Instância do Socket.IO não encontrada no app');
+    }
+    
+    // Resposta para AJAX (mantida para compatibilidade)
     return res.json({ success: true, message: "Sessão iniciada com sucesso" });
   } catch (err) {
+    console.error('Erro ao iniciar sessão:', err);
     return res.status(500).json({ success: false, message: "Erro ao iniciar sessão: " + err.message });
   }
 };
@@ -279,7 +294,10 @@ const pausarSessao = async (req, res) => {
     // Atualizar status da sessão
     sessao.status = "pausada";
     
-    // Registrar ação no histórico
+    // Registrar ação no histórico (com verificação defensiva)
+    if (!sessao.historicoAcoes) {
+      sessao.historicoAcoes = [];
+    }
     sessao.historicoAcoes.push({
       tipo: "pausa",
       executadoPor: req.user._id,
@@ -288,9 +306,22 @@ const pausarSessao = async (req, res) => {
     
     await sessao.save();
     
-    // Resposta para AJAX
+    // Emitir evento via socket para todos os participantes
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`sessao:${id}`).emit('sessaoPausada', { 
+        mensagem: "A sessão foi pausada pelo host",
+        status: 'pausada'
+      });
+      console.log(`Evento 'sessaoPausada' emitido para a sala sessao:${id}`);
+    } else {
+      console.error('Instância do Socket.IO não encontrada no app');
+    }
+    
+    // Resposta para AJAX (mantida para compatibilidade)
     return res.json({ success: true, message: "Sessão pausada com sucesso" });
   } catch (err) {
+    console.error('Erro ao pausar sessão:', err);
     return res.status(500).json({ success: false, message: "Erro ao pausar sessão: " + err.message });
   }
 };
@@ -328,8 +359,20 @@ const concluirSessao = async (req, res) => {
     // 3. Atualizar status da sessão
     sessao.status = "concluida";
     await sessao.save();
+    
+    // Emitir evento via socket para todos os participantes
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`sessao:${id}`).emit('sessaoConcluida', { 
+        mensagem: "A sessão foi concluída pelo host",
+        status: 'concluida'
+      });
+      console.log(`Evento 'sessaoConcluida' emitido para a sala sessao:${id}`);
+    } else {
+      console.error('Instância do Socket.IO não encontrada no app');
+    }
 
-    // Resposta para AJAX
+    // Resposta para AJAX (mantida para compatibilidade)
     return res.json({ success: true, message: "Sessão concluída com sucesso" });
 
   } catch (err) {
@@ -366,7 +409,10 @@ const expulsarParticipante = async (req, res) => {
     // Remover participante da sessão
     sessao.participantes = sessao.participantes.filter(p => !p.equals(participanteId));
     
-    // Registrar ação no histórico
+    // Registrar ação no histórico (com verificação defensiva)
+    if (!sessao.historicoAcoes) {
+      sessao.historicoAcoes = [];
+    }
     sessao.historicoAcoes.push({
       tipo: "expulsao",
       executadoPor: req.user._id,
@@ -375,12 +421,25 @@ const expulsarParticipante = async (req, res) => {
     
     await sessao.save();
     
-    // Resposta para AJAX
+    // Emitir evento via socket para todos os participantes
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`sessao:${id}`).emit('participanteExpulso', { 
+        participanteId,
+        participanteNome: participante.nick || participante.nome
+      });
+      console.log(`Evento 'participanteExpulso' emitido para a sala sessao:${id}`);
+    } else {
+      console.error('Instância do Socket.IO não encontrada no app');
+    }
+    
+    // Resposta para AJAX (mantida para compatibilidade)
     return res.json({ 
       success: true, 
       message: `Participante ${participante.nick || participante.nome} expulso com sucesso` 
     });
   } catch (err) {
+    console.error('Erro ao expulsar participante:', err);
     return res.status(500).json({ success: false, message: "Erro ao expulsar participante: " + err.message });
   }
 };
